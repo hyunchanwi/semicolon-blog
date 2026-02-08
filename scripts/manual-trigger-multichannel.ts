@@ -2,15 +2,15 @@
 import dotenv from 'dotenv';
 import path from 'path';
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { TavilySearchProvider } from "../src/lib/search/tavily";
-import { getFeaturedImage } from "../src/lib/images/unsplash";
-import { uploadImageFromUrl, getOrCreateTag, checkVideoExists } from "../src/lib/wp-server";
+import { TavilySearchProvider } from "../src/lib/search/tavily.ts";
+import { getFeaturedImage } from "../src/lib/images/unsplash.ts";
+import { uploadImageFromUrl, getOrCreateTag, checkVideoExists } from "../src/lib/wp-server.ts";
 import {
     getAllLatestVideos,
     createVideoPrompt,
     YouTubeVideo
-} from "../src/lib/youtube-channels";
-import { classifyContent } from "../src/lib/category-rules";
+} from "../src/lib/youtube-channels.ts";
+import { classifyContent } from "../src/lib/category-rules.ts";
 
 // Load env
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });

@@ -128,14 +128,14 @@ async function generateFromVideo(video: YouTubeVideo): Promise<{ title: string; 
         }
 
         // 2. 영상 임베드 추가 (맨 아래 - 참고 영상)
-        // 2026-02-08: 하단 링크 제거 (영상만 남김)
+        // 사용자 요청: "하단 참고 영상 필수: 원본 영상을 첨부, 링크는 삭제"
         const embedHtml = `
         <div style="margin-top: 3rem; padding-top: 2rem; border-top: 1px solid #e2e8f0;">
             <h3 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 1rem;">📺 참고 영상</h3>
             <div class="video-container" style="position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:0.75rem;box-shadow:0 4px 6px -1px rgb(0 0 0 / 0.1);">
                 <iframe style="position:absolute;top:0;left:0;width:100%;height:100%;" src="https://www.youtube.com/embed/${video.id}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
             </div>
-            <!-- Link removed -->
+            <!-- Link removed as per user request (2026-02-08) -->
         </div>
         `;
 
@@ -147,7 +147,7 @@ async function generateFromVideo(video: YouTubeVideo): Promise<{ title: string; 
         };
     } catch (e) {
         console.error("[YouTube] Failed to parse Gemini response:", e);
-        // 폴백: 링크 제거
+        // 폴백: 영상 제목 사용, 영상 임베드 하단 포함 (링크 제외)
         return {
             title: video.title,
             content: `<p>${video.description}</p><p>(AI가 내용을 요약하는 데 실패했습니다. 원본 영상을 참고해 주세요.)</p>
@@ -206,135 +206,136 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-        console.log("[YouTube] 🎬 Starting YouTube-based post generation (Parallel Mode)...");
+        console.log("[YouTube] 🎬 Starting YouTube-based post generation (Rotation Mode)...");
 
-        // 1. 모든 채널에서 최신 영상 가져오기
+        // 1. 채널 로테이션 로직 (Cron 실행 시)
+        // 사용자의 요청: "랜덤이 아닌 유튜브 채널 별 순서를 정해 로테이션 할 것"
+        // 6시간마다 실행되므로, 현재 시간을 기준으로 채널을 선택합니다.
+        // 채널: 0:EOAG(잇섭), 1:TechMong, 2:Jooyon, 3:Bulsit
+        const hour = new Date().getHours();
+        const kstHour = (hour + 9) % 24; // Vercel is UTC, convert to KST approximation or just rely on consistent UTC hour.
+        // Actually Vercel server time is UTC. Cron schedule `0 */6 * * *` runs at 0, 6, 12, 18 UTC.
+        // Using `hour % channels.length` is deterministic.
+
+        const channelIndex = hour % channels.length;
+        const selectedChannel = channels[channelIndex]; // 하나만 선택
+
+        console.log(`[YouTube] 🔄 Selected Channel for this hour (${hour}h): ${selectedChannel.name} (Index ${channelIndex})`);
+
+        // 2. 전체 영상 가져오기 (API 효율을 위해 개선 가능하지만 지금은 유지)
         const allVideos = await getAllLatestVideos();
-        console.log(`[YouTube] Got ${allVideos.length} total videos from channels`);
+        const channelVideos = allVideos
+            .filter(v => v.channelName === selectedChannel.name); // ID가 아닌 Name으로 필터링 주의 (channels[i].name과 video.channelName 일치 여부 확인 필요)
+        // lib/youtube-channels.ts에서 channelName이 일치하게 나오는지 확인. 보통 ID로 하는게 안전함.
+        // allVideos 반환값에 channelId가 있음.
 
-        if (allVideos.length === 0) {
-            return NextResponse.json({ success: false, error: "No videos found" }, { status: 404 });
-        }
+        const targetVideos = allVideos.filter(v => v.channelId === selectedChannel.id);
 
-        // 2. 채널별로 그룹화
-        const videosByChannel = new Map<string, YouTubeVideo[]>();
-        for (const video of allVideos) {
-            if (!videosByChannel.has(video.channelName)) {
-                videosByChannel.set(video.channelName, []);
-            }
-            videosByChannel.get(video.channelName)?.push(video);
-        }
+        console.log(`[YouTube] Found ${targetVideos.length} videos for ${selectedChannel.name}`);
 
-        const videosToProcess: YouTubeVideo[] = [];
-
-        // 3. 각 채널별로 순회하며 "아직 포스팅되지 않은 최신 영상" 1개씩 찾기
-        for (const [channelName, videos] of videosByChannel) {
-            let targetVideo: YouTubeVideo | null = null;
-            // videos는 최신순 정렬되어 있음
-            for (const video of videos) {
-                // 메타데이터 기반 중복 체크 (Video ID)
-                const exists = await checkVideoExists(video.id, WP_AUTH);
-                if (!exists) {
-                    targetVideo = video;
-                    break; // 중복되지 않은 가장 최신 영상을 찾으면 스탑
-                } else {
-                    console.log(`[YouTube] Skipping duplicate: "${video.title}"`);
-                }
-            }
-
-            if (targetVideo) {
-                console.log(`[YouTube] ✅ Selected for ${channelName}: "${targetVideo.title}"`);
-                videosToProcess.push(targetVideo);
-            } else {
-                console.log(`[YouTube] All recent videos for ${channelName} already posted.`);
-            }
-        }
-
-        if (videosToProcess.length === 0) {
+        if (targetVideos.length === 0) {
             return NextResponse.json({
-                success: false,
-                message: "All recent videos from all channels already have posts"
+                success: true,
+                message: `No videos found for channel ${selectedChannel.name}`,
+                rotation: { hour, selectedChannel: selectedChannel.name }
             });
         }
 
-        // 4. 병렬 처리 (Promise.allSettled)
-        console.log(`[YouTube] Processing ${videosToProcess.length} videos concurrently...`);
+        // 3. 중복 체크 및 최신 영상 선정
+        let targetVideo: YouTubeVideo | null = null;
 
-        const results = await Promise.allSettled(videosToProcess.map(async (video) => {
-            try {
-                // 4-1. AI 글 생성
-                console.log(`[YouTube] Generating content for: "${video.title}"...`);
-                const { title, content } = await generateFromVideo(video);
+        // targetVideos는 이미 최신순 정렬되어 있다고 가정 (RSS 파싱 순서)
+        for (const video of targetVideos) {
+            const exists = await checkVideoExists(video.id, WP_AUTH);
+            if (!exists) {
+                targetVideo = video;
+                break; // 가장 최신이면서 발행 안 된 것 찾음
+            } else {
+                console.log(`[YouTube] Skipping duplicate: "${video.title}"`);
+            }
+        }
 
-                // 4-2. 카테고리 분류
-                const categoryId = classifyContent(title, content);
-                if (categoryId === 1) { // 1 = 기타
-                    console.log(`[YouTube] ⚠️ "${title}" classified as OTHER (non-IT), skipping`);
-                    return { status: 'skipped', reason: 'non-IT content', video: video.title };
-                }
+        if (!targetVideo) {
+            return NextResponse.json({
+                success: true,
+                message: `All recent videos for ${selectedChannel.name} already posted`,
+                rotation: { hour, selectedChannel: selectedChannel.name }
+            });
+        }
 
-                // 4-3. 이미지 준비
-                let featuredMediaId = 0;
-                let imageUrl = "";
-                let imageCredit = "";
+        console.log(`[YouTube] ✅ Selected Video: "${targetVideo.title}" (${targetVideo.id})`);
 
-                try {
-                    const imageData = await getFeaturedImage(title);
-                    if (imageData) {
-                        imageUrl = imageData.url;
-                        imageCredit = imageData.credit;
-                    }
-                    if (!imageUrl) {
-                        const searcher = new TavilySearchProvider(process.env.TAVILY_API_KEY || "");
-                        const tRes = await searcher.search(`${title} image`);
-                        if (tRes[0]?.images?.[0]) imageUrl = tRes[0].images[0];
-                    }
-                } catch (e) { }
+        // 4. 글 생성 및 발행
+        const { title, content } = await generateFromVideo(targetVideo);
 
-                if (!imageUrl) {
-                    imageUrl = "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&q=80&w=1200";
-                    imageCredit = "Unsplash";
-                }
+        // 4-1. 카테고리 분류
+        const categoryId = classifyContent(title, content);
+        if (categoryId === 1) { // 1 = 기타
+            console.log(`[YouTube] ⚠️ "${title}" classified as OTHER (non-IT), skipping`);
+            return NextResponse.json({
+                success: false,
+                reason: 'Skipped non-IT content',
+                video: targetVideo.title
+            });
+        }
 
-                if (WP_AUTH && imageUrl) {
-                    const mid = await uploadImageFromUrl(imageUrl, title, WP_AUTH);
-                    if (mid) featuredMediaId = mid;
-                }
+        // 4-2. 썸네일/이미지 처리 (Feature Image)
+        let featuredMediaId = 0;
+        let imageUrl = "";
+        let imageCredit = "";
 
-                const featuredImageHtml = `
+        try {
+            const imageData = await getFeaturedImage(title);
+            if (imageData) {
+                imageUrl = imageData.url;
+                imageCredit = imageData.credit;
+            }
+            if (!imageUrl) {
+                const searcher = new TavilySearchProvider(process.env.TAVILY_API_KEY || "");
+                const tRes = await searcher.search(`${title} image`);
+                if (tRes[0]?.images?.[0]) imageUrl = tRes[0].images[0];
+            }
+        } catch (e) { }
+
+        if (!imageUrl) {
+            imageUrl = "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&q=80&w=1200";
+            imageCredit = "Unsplash";
+        }
+
+        if (WP_AUTH && imageUrl) {
+            const mid = await uploadImageFromUrl(imageUrl, title, WP_AUTH);
+            if (mid) featuredMediaId = mid;
+        }
+
+        const featuredImageHtml = `
                     <figure class="wp-block-image size-large">
                         <img src="${imageUrl}" alt="${title}"/>
                         <figcaption>${imageCredit}</figcaption>
                     </figure>
                 `;
 
-                // 4-4. 발행
-                const youTubeTagId = await getOrCreateTag("YouTube", WP_AUTH);
-                const post = await publishPost(
-                    title,
-                    content,
-                    categoryId,
-                    featuredImageHtml,
-                    featuredMediaId,
-                    youTubeTagId ? [youTubeTagId] : [],
-                    { youtube_source_id: video.id, youtube_channel: video.channelName }
-                );
+        // 4-3. 발행
+        const youTubeTagId = await getOrCreateTag("YouTube", WP_AUTH);
+        const post = await publishPost(
+            title,
+            content,
+            categoryId,
+            featuredImageHtml,
+            featuredMediaId,
+            youTubeTagId ? [youTubeTagId] : [],
+            { youtube_source_id: targetVideo.id, youtube_channel: targetVideo.channelName }
+        );
 
-                return { status: 'success', id: post.id, title, video: video.title, link: post.link };
-
-            } catch (error) {
-                console.error(`[YouTube] Error processing video "${video.title}":`, error);
-                throw error;
-            }
-        }));
-
-        const successCount = results.filter(r => r.status === 'fulfilled').length; // Simple success count, ideally check value status
+        console.log(`[YouTube] 🚀 Published post ID: ${post.id}`);
 
         return NextResponse.json({
             success: true,
-            processed: results.length,
-            successCount,
-            results: results.map(r => r.status === 'fulfilled' ? r.value : r.reason)
+            id: post.id,
+            title: post.link,
+            rotation: {
+                hour,
+                selectedChannel: selectedChannel.name
+            }
         });
 
     } catch (error) {
