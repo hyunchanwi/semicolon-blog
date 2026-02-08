@@ -212,7 +212,8 @@ export async function GET(request: NextRequest) {
         // 사용자의 요청: "랜덤이 아닌 유튜브 채널 별 순서를 정해 로테이션 할 것"
         // 6시간마다 실행되므로, 현재 시간을 기준으로 채널을 선택합니다.
         // 채널: 0:EOAG(잇섭), 1:TechMong, 2:Jooyon, 3:Bulsit
-        const hour = new Date().getHours();
+        // const hour = new Date().getHours();
+        const hour = 0; // Force Itsub (Index 0)
         const kstHour = (hour + 9) % 24; // Vercel is UTC, convert to KST approximation or just rely on consistent UTC hour.
         // Actually Vercel server time is UTC. Cron schedule `0 */6 * * *` runs at 0, 6, 12, 18 UTC.
         // Using `hour % channels.length` is deterministic.
