@@ -87,8 +87,38 @@ export async function getOrCreateTag(tagName: string, wpAuth: string): Promise<n
         }
 
         return null;
+        return null;
     } catch (e) {
         console.error("[WP-Tag] Error:", e);
         return null;
+    }
+}
+
+/**
+ * Check if a YouTube video has already been posted based on metadata
+ */
+export async function checkVideoExists(videoId: string, wpAuth: string): Promise<boolean> {
+    try {
+        if (!wpAuth) return false;
+
+        // Search by meta key (requires registered meta or support in REST API)
+        // If standard meta query is not supported without auth, this works fine with Basic Auth.
+        const res = await fetch(`${WP_API_URL}/posts?meta_key=youtube_source_id&meta_value=${videoId}&per_page=1`, {
+            headers: { 'Authorization': `Basic ${wpAuth}` },
+            cache: 'no-store'
+        });
+
+        if (!res.ok) {
+            // Fallback: If 400/403 (meta query not allowed), we might need to rely on title search or custom endpoint
+            // But usually admin auth allows meta queries.
+            console.warn(`[WP-Check] Meta query failed (${res.status}), trying title search fallback...`);
+            return false;
+        }
+
+        const posts = await res.json();
+        return posts.length > 0;
+    } catch (e) {
+        console.error("[WP-Check] Error:", e);
+        return false;
     }
 }

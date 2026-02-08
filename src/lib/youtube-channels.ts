@@ -222,15 +222,8 @@ export function createVideoPrompt(video: YouTubeVideo): string {
 1. **절대 규칙**: 반드시 제공된 [영상 정보]와 [설명] 내용만을 기반으로 작성하세요. 
 2. **금지 사항**: 영상에 없는 내용, 특히 최근 뉴스, 정치, 사회 이슈 등을 절대 추가하지 마세요. MBC 뉴스나 타 언론사 내용을 가져오지 마세요.
 3. 영상 내용을 기반으로 하되, 글만으로도 이해할 수 있게 풍부하게 작성
-4. 한국어로 자연스럽게 작성
-5. 제목은 SEO 최적화된 형태로
-6. 본문에 유튜브 영상 임베드 포함
-7. 글 마지막에 영상 출처 명시
-
-## 유튜브 임베드 HTML
-<div class="video-container" style="position:relative;padding-bottom:56.25%;height:0;overflow:hidden;margin:2rem 0;">
-<iframe style="position:absolute;top:0;left:0;width:100%;height:100%;" src="https://www.youtube.com/embed/${video.id}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
-</div>
+4. 제목은 SEO 최적화된 형태로
+5. 서론, 본론(소제목 포함), 결론으로 구성
 
 ## 출처
 > 이 글은 **${video.channelName}** 채널의 영상을 참고하여 작성되었습니다.`;
