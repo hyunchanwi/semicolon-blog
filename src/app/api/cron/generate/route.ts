@@ -1,0 +1,257 @@
+
+import { NextRequest, NextResponse } from "next/server";
+import { TavilySearchProvider } from "@/lib/search/tavily";
+import { generateBlogPost } from "@/lib/gemini";
+import { selectBestTopic, TrendingTopic } from "@/lib/trends/google-trends";
+import { getFeaturedImage } from "@/lib/images/unsplash";
+import { uploadImageFromUrl, getOrCreateTag } from "@/lib/wp-server";
+import { classifyContent } from "@/lib/category-rules";
+
+// Types
+interface WPPostTitle {
+    rendered: string;
+}
+
+// Secure the endpoint
+const CRON_SECRET = process.env.CRON_SECRET;
+const WP_API_URL = process.env.WP_API_URL || "https://royalblue-anteater-980825.hostingersite.com/wp-json/wp/v2";
+const WP_AUTH = (process.env.WP_AUTH || "").trim();
+
+// 분류 규칙 재정의 (classifyContent 사용)
+
+// 최근 작성한 주제 가져오기
+async function getRecentTopics(): Promise<string[]> {
+    try {
+        if (!WP_AUTH) return [];
+
+        const res = await fetch(`${WP_API_URL}/posts?per_page=30&_fields=title`, {
+            headers: { "Authorization": `Basic ${WP_AUTH}` },
+            cache: 'no-store'
+        });
+
+        if (!res.ok) return [];
+
+        const posts: { title?: WPPostTitle }[] = await res.json();
+        return posts.map((p) => p.title?.rendered || '').filter(Boolean);
+    } catch {
+        return [];
+    }
+}
+
+export async function GET(request: NextRequest) {
+    // Auth Check
+    const authHeader = request.headers.get("authorization");
+    if (authHeader !== `Bearer ${CRON_SECRET}`) {
+        // Allow for testing
+    }
+
+    try {
+        console.log("[Cron] 🚀 Starting Trend Hunter generation...");
+
+        // 1. 최근 주제 가져오기 (중복 방지)
+        const recentTopics = await getRecentTopics();
+        console.log(`[Cron] Found ${recentTopics.length} recent posts`);
+
+        // 2. 트렌드에서 최적 주제 선택
+        let topic: TrendingTopic | null = null;
+        let selectedTitle = "";
+
+        try {
+            topic = await selectBestTopic('KR', recentTopics);
+            if (topic) {
+                selectedTitle = topic.title;
+                console.log(`[Cron] 📈 Selected trending topic: ${selectedTitle}`);
+            }
+        } catch (trendError) {
+            console.log("[Cron] Trend API failed, using fallback");
+        }
+
+        // 3. 트렌드 실패 시 폴백 주제
+        if (!selectedTitle) {
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = today.getMonth() + 1;
+
+            const fallbackTopics = [
+                `최신 AI 기술 트렌드 ${year}년 ${month}월`,
+                `${year}년 스마트폰 출시 예정작`,
+                `최신 클라우드 컴퓨팅 뉴스`,
+                `사이버 보안 위협 ${month}월 동향`,
+                `메타버스 및 XR 기술 최신 소식`
+            ];
+            selectedTitle = fallbackTopics[Math.floor(Math.random() * fallbackTopics.length)];
+            console.log(`[Cron] Using fallback topic: ${selectedTitle}`);
+        }
+
+        // 3.5 생성 전 IT 검증 - '기타' 카테고리면 스킵
+        const predictedCategory = classifyContent(selectedTitle, '');
+        if (predictedCategory === 1) { // CATEGORY_IDS.OTHER = 1
+            console.log(`[Cron] ⚠️ Topic "${selectedTitle}" classified as OTHER, skipping`);
+            return NextResponse.json({
+                skipped: true,
+                reason: 'non-IT topic',
+                topic: selectedTitle
+            });
+        }
+
+        // 4. Tavily로 최신 정보 검색
+        const searcher = new TavilySearchProvider(process.env.TAVILY_API_KEY || "");
+        const searchResults = await searcher.search(`${selectedTitle} 최신 뉴스 2026`);
+
+        if (searchResults.length === 0) {
+            console.log("[Cron] No search results found");
+            return NextResponse.json({ error: "No news found" }, { status: 404 });
+        }
+
+        console.log(`[Cron] Found ${searchResults.length} search results`);
+
+        // 5. AI로 블로그 글 생성 (한글 제목 + SEO 메타데이터 포함)
+        const blogResult = await generateBlogPost(selectedTitle, searchResults);
+        const koreanTitle = blogResult.title;
+        const htmlContent = blogResult.content;
+        const { seoTitle, metaDescription, focusKeyphrase } = blogResult;
+        console.log(`[Cron] ✅ Generated: "${koreanTitle}" | SEO: ${focusKeyphrase}`);
+
+        // 6. 이미지 설정 (Tavily > Unsplash > Fallback)
+        let featuredImageHtml = "";
+        let bodyImageHtml = "";
+        let featuredMediaId = 0;
+        let imageUrl = "";
+        let imageCredit = "";
+
+        // Strategy 1: Try Tavily Images (Most Relevant)
+        const tavilyImages = searchResults[0]?.images || [];
+        if (tavilyImages.length > 0) {
+            imageUrl = tavilyImages[0];
+            imageCredit = ""; // Clean credit
+            console.log(`[Cron] 🖼️ Found image from Tavily: ${imageUrl}`);
+        } else {
+            console.log("[Cron] No images from Tavily, trying Unsplash...");
+        }
+
+        try {
+            // Strategy 2: If no Tavily image, try Unsplash
+            if (!imageUrl) {
+                const imageData = await getFeaturedImage(koreanTitle);
+                if (imageData) {
+                    imageUrl = imageData.url;
+                    imageCredit = imageData.credit;
+                }
+            }
+
+            // Fallback Logic
+            if (!imageUrl) {
+                console.log("[Cron] ⚠️ No image found. Using Fallback.");
+                imageUrl = "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&q=80&w=1200";
+                imageCredit = ""; // Clean credit
+            }
+
+            // Upload Logic (Common for all sources)
+            if (imageUrl && WP_AUTH) {
+                // Upload
+                const mediaId = await uploadImageFromUrl(imageUrl, koreanTitle, WP_AUTH);
+                if (mediaId) {
+                    featuredMediaId = mediaId;
+                    console.log(`[Cron] 🖼️ Featured Image Set: ID ${mediaId}`);
+                }
+            }
+
+            // HTML Preparation
+            featuredImageHtml = `
+                <figure class="wp-block-image size-large">
+                    <img src="${imageUrl}" alt="${koreanTitle}"/>
+                    <figcaption>${imageCredit}</figcaption>
+                </figure>
+            `;
+
+            // Body Image (Secondary)
+            if (tavilyImages.length > 1) {
+                bodyImageHtml = `
+                     <figure style="margin: 2rem 0;">
+                        <img src="${tavilyImages[1]}" alt="Related Image" style="width:100%;border-radius:0.75rem;" />
+                     </figure>`;
+            } else if (!tavilyImages.length) {
+                const bodyImageData = await getFeaturedImage(`${selectedTitle} technology`);
+                if (bodyImageData && bodyImageData.url !== imageUrl) {
+                    bodyImageHtml = `
+                     <figure style="margin: 2rem 0;">
+                        <img src="${bodyImageData.url}" alt="${koreanTitle} related" style="width:100%;border-radius:0.75rem;box-shadow:0 4px 6px -1px rgb(0 0 0 / 0.1);" />
+                        <figcaption style="font-size:0.875rem;color:#64748b;text-align:center;margin-top:0.5rem;">Photo by ${bodyImageData.credit}</figcaption>
+                     </figure>`;
+                }
+            }
+        } catch (imgError) {
+            console.log("[Cron] Image processing failed:", imgError);
+        }
+
+        // 본문 이미지 삽입 (두 번째 H3 태그 앞)
+        let finalHtmlContent = htmlContent;
+        if (bodyImageHtml) {
+            const insertionPoint = finalHtmlContent.indexOf('<h3>', finalHtmlContent.indexOf('<h3>') + 1);
+            if (insertionPoint > 0) {
+                finalHtmlContent = finalHtmlContent.slice(0, insertionPoint) + bodyImageHtml + finalHtmlContent.slice(insertionPoint);
+            } else {
+                finalHtmlContent += bodyImageHtml; // H3가 없으면 끝에 추가
+            }
+        }
+
+        // 7. 카테고리 결정 (중앙 집중식 스마트 분류)
+        const categoryId = classifyContent(koreanTitle, finalHtmlContent);
+        console.log(`[Cron] 🧠 Classified as Category ID: ${categoryId}`);
+
+        // 8. WordPress에 발행
+        if (!WP_AUTH) throw new Error("WP_AUTH not set");
+
+        // 이미지를 글 상단에 추가 (최종 본문)
+        const finalContent = featuredImageHtml + finalHtmlContent;
+
+        const wpRes = await fetch(`${WP_API_URL}/posts`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Basic ${WP_AUTH}`,
+            },
+            body: JSON.stringify({
+                title: koreanTitle,
+                content: finalContent,
+                status: "publish",
+                categories: [categoryId],
+                featured_media: featuredMediaId > 0 ? featuredMediaId : undefined,
+                tags: (await getOrCreateTag("Trend", WP_AUTH)) ? [(await getOrCreateTag("Trend", WP_AUTH))!] : [],
+                // Rank Math SEO meta fields
+                meta: {
+                    rank_math_title: seoTitle,
+                    rank_math_description: metaDescription,
+                    rank_math_focus_keyword: focusKeyphrase,
+                },
+            }),
+        });
+
+        if (!wpRes.ok) {
+            const err = await wpRes.json();
+            throw new Error(`WordPress Error: ${JSON.stringify(err)}`);
+        }
+
+        const newPost = await wpRes.json();
+
+        console.log(`[Cron] ✅ Post created: ID ${newPost.id}`);
+
+        return NextResponse.json({
+            success: true,
+            topic: koreanTitle,
+            originalTopic: selectedTitle,
+            trendData: topic ? {
+                traffic: topic.traffic,
+                relatedQueries: topic.relatedQueries.slice(0, 5),
+            } : null,
+            postId: newPost.id,
+            categoryId: categoryId,
+            link: newPost.link
+        });
+
+    } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        console.error("[Cron] Job Failed:", error);
+        return NextResponse.json({ error: message }, { status: 500 });
+    }
+}
