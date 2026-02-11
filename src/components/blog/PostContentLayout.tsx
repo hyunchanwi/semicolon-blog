@@ -47,13 +47,16 @@ export function PostContentLayout({ content, toc, hasToc }: PostContentLayoutPro
                         prose-p:text-slate-800 dark:prose-p:text-slate-300 prose-p:leading-relaxed 
                         prose-p:text-[1.125rem] md:prose-p:text-[1.2rem]
                         prose-li:text-slate-800 dark:prose-li:text-slate-300 prose-li:text-[1.125rem] md:prose-li:text-[1.2rem]
-                        prose-a:text-indigo-600 dark:prose-a:text-indigo-400 prose-a:no-underline hover:prose-a:underline
-                        prose-img:rounded-3xl prose-img:shadow-lg prose-img:my-10 prose-img:w-full
+                        prose-a:text-indigo-600 dark:prose-a:text-indigo-400 prose-a:no-underline hover:prose-a:underline prose-a:break-all
+                        prose-img:rounded-3xl prose-img:shadow-lg prose-img:my-10 prose-img:!w-full prose-img:!max-w-full prose-img:!h-auto
                         prose-code:bg-slate-100 dark:prose-code:bg-slate-800 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-md prose-code:text-indigo-600 dark:prose-code:text-indigo-400 prose-code:font-semibold
-                        prose-pre:bg-slate-900 dark:prose-pre:bg-slate-900 prose-pre:rounded-2xl
+                        prose-pre:bg-slate-900 dark:prose-pre:bg-slate-900 prose-pre:rounded-2xl prose-pre:overflow-x-auto
                         [&>h2]:text-3xl [&>h2]:mt-12 [&>h2]:mb-6
                         [&>h3]:text-2xl [&>h3]:mt-10 [&>h3]:mb-4
                         [&>h4]:text-xl [&>h4]:mt-8 [&>h4]:mb-3
+                        [&_iframe]:!w-full [&_iframe]:!max-w-full [&_video]:!w-full [&_video]:!max-w-full
+                        [&_table]:block [&_table]:overflow-x-auto [&_table]:whitespace-nowrap
+                        break-words overflow-hidden
                     "
                 >
                     <ContentRenderer firstHalf={firstHalf} secondHalf={secondHalf} />
