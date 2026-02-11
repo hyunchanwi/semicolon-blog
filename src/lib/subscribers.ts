@@ -150,10 +150,12 @@ async function saveSubscribersData(subscribers: Subscriber[]): Promise<boolean> 
 
 /**
  * 구독자 추가
+ * autoVerify: true이면 즉시 인증 완료 (OAuth 로그인 사용자)
  */
 export async function addSubscriber(
     email: string,
-    tier: "free" | "premium" = "free"
+    tier: "free" | "premium" = "free",
+    autoVerify: boolean = false
 ): Promise<{ success: boolean; message: string; verifyToken?: string }> {
     const subscribers = await getSubscribersData();
 
@@ -162,6 +164,12 @@ export async function addSubscriber(
     if (existing) {
         if (existing.verified) {
             return { success: false, message: "이미 구독 중인 이메일입니다." };
+        }
+        // 미인증 상태 + autoVerify면 즉시 인증
+        if (autoVerify) {
+            existing.verified = true;
+            await saveSubscribersData(subscribers);
+            return { success: true, message: "구독이 완료되었습니다! 🎉" };
         }
         // 미인증 상태이면 토큰 재발급
         existing.verifyToken = generateToken();
@@ -179,7 +187,7 @@ export async function addSubscriber(
     const newSubscriber: Subscriber = {
         email: email.toLowerCase(),
         tier,
-        verified: false,
+        verified: autoVerify, // OAuth 로그인 사용자는 즉시 인증
         verifyToken,
         subscribedAt: new Date().toISOString(),
         unsubscribeToken,
@@ -190,6 +198,13 @@ export async function addSubscriber(
 
     if (!saved) {
         return { success: false, message: "구독 등록 중 오류가 발생했습니다." };
+    }
+
+    if (autoVerify) {
+        return {
+            success: true,
+            message: "구독이 완료되었습니다! 🎉 새 글이 발행되면 이메일로 알려드릴게요.",
+        };
     }
 
     return {
@@ -259,4 +274,14 @@ export async function getVerifiedSubscribers(
 export async function getSubscriberCount(): Promise<number> {
     const subscribers = await getSubscribersData();
     return subscribers.filter((s) => s.verified).length;
+}
+
+/**
+ * 특정 이메일의 구독 상태 확인
+ */
+export async function isSubscribed(email: string): Promise<boolean> {
+    const subscribers = await getSubscribersData();
+    return subscribers.some(
+        (s) => s.email.toLowerCase() === email.toLowerCase() && s.verified
+    );
 }
