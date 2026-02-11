@@ -42,7 +42,7 @@ export function PostContentLayout({ content, toc, hasToc }: PostContentLayoutPro
                 <div
                     className="
                         prose prose-lg md:prose-xl prose-slate dark:prose-invert 
-                        w-full max-w-none lg:flex-1 lg:min-w-0
+                        !w-full !max-w-full lg:flex-1 lg:min-w-0
                         prose-headings:font-bold prose-headings:text-slate-900 dark:prose-headings:text-slate-100 prose-headings:tracking-tight
                         prose-p:text-slate-800 dark:prose-p:text-slate-300 prose-p:leading-relaxed 
                         prose-p:text-[1.125rem] md:prose-p:text-[1.2rem]
