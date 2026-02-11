@@ -39,7 +39,10 @@ interface PostEditorProps {
 export const PostEditor = ({ initialData, categories = [] }: PostEditorProps) => {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
     const [error, setError] = useState("");
+    const [saveMessage, setSaveMessage] = useState("");
+    const [postId, setPostId] = useState<number | undefined>(initialData?.id);
 
     const [title, setTitle] = useState(initialData?.title || "");
     const [content, setContent] = useState(initialData?.content || "");
@@ -61,41 +64,78 @@ export const PostEditor = ({ initialData, categories = [] }: PostEditorProps) =>
         initialData?.categories?.[0]?.toString() || ""
     );
 
+    const savePost = async (saveStatus: string, redirect: boolean) => {
+        const endpoint = postId
+            ? `/api/admin/posts/${postId}`
+            : "/api/admin/posts";
+
+        const method = postId ? "PUT" : "POST";
+
+        const res = await fetch(endpoint, {
+            method,
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                title,
+                content,
+                status: saveStatus,
+                categories: selectedCategory ? [parseInt(selectedCategory)] : [],
+                featured_media: thumbnailId || undefined
+            }),
+        });
+
+        if (!res.ok) {
+            const data = await res.json();
+            throw new Error(data.error || "저장 실패");
+        }
+
+        const result = await res.json();
+
+        // 새 글 저장 시 postId 업데이트 (중복 생성 방지)
+        if (!postId && result.post?.id) {
+            setPostId(result.post.id);
+            // URL을 수정 페이지로 변경 (페이지 이동 없이)
+            window.history.replaceState(null, '', `/admin/posts/${result.post.id}/edit`);
+        }
+
+        if (redirect) {
+            router.push("/admin/posts");
+            router.refresh();
+        }
+
+        return result;
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsLoading(true);
         setError("");
 
         try {
-            const endpoint = initialData?.id
-                ? `/api/admin/posts/${initialData.id}`
-                : "/api/admin/posts";
-
-            const method = initialData?.id ? "PUT" : "POST";
-
-            const res = await fetch(endpoint, {
-                method,
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    title,
-                    content,
-                    status,
-                    categories: selectedCategory ? [parseInt(selectedCategory)] : [],
-                    featured_media: thumbnailId || undefined
-                }),
-            });
-
-            if (!res.ok) {
-                const data = await res.json();
-                throw new Error(data.error || "저장 실패");
-            }
-
-            router.push("/admin/posts");
-            router.refresh();
+            await savePost(status, true);
         } catch (err: any) {
             setError(err.message);
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    const handleSaveDraft = async () => {
+        if (!title) {
+            setError("제목을 입력해 주세요.");
+            return;
+        }
+        setIsSaving(true);
+        setError("");
+        setSaveMessage("");
+
+        try {
+            await savePost("draft", false);
+            setSaveMessage("✅ 임시 저장되었습니다.");
+            setTimeout(() => setSaveMessage(""), 3000);
+        } catch (err: any) {
+            setError(err.message);
+        } finally {
+            setIsSaving(false);
         }
     };
 
@@ -310,6 +350,21 @@ export const PostEditor = ({ initialData, categories = [] }: PostEditorProps) =>
                         </DialogContent>
                     </Dialog>
 
+                    {saveMessage && (
+                        <span className="text-sm text-green-600 font-medium animate-pulse">
+                            {saveMessage}
+                        </span>
+                    )}
+                    <Button
+                        type="button"
+                        variant="outline"
+                        className="text-slate-600 border-slate-300 hover:bg-slate-50"
+                        onClick={handleSaveDraft}
+                        disabled={isSaving || isLoading}
+                    >
+                        {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Save className="h-4 w-4 mr-1" />}
+                        임시 저장
+                    </Button>
                     <Button
                         type="button"
                         variant="ghost"
@@ -321,7 +376,7 @@ export const PostEditor = ({ initialData, categories = [] }: PostEditorProps) =>
                     <Button
                         onClick={handleSubmit}
                         className="bg-[#03c75a] hover:bg-[#02b350] text-white rounded-md px-6 font-bold"
-                        disabled={isLoading}
+                        disabled={isLoading || isSaving}
                     >
                         {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "등록"}
                     </Button>
