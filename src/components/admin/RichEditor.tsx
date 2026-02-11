@@ -17,7 +17,7 @@ import {
     Bold, Italic, Strikethrough, Underline as UnderlineIcon,
     Quote, List, ListOrdered, Link as LinkIcon, Image as ImageIcon,
     AlignLeft, AlignCenter, AlignRight, Youtube as YoutubeIcon,
-    Heading1, Heading2, Heading3, Type, Palette, Trash2
+    Heading1, Heading2, Heading3, Type, Palette, Trash2, LayoutGrid
 } from "lucide-react";
 import { Toggle } from "@/components/ui/toggle";
 import { Button } from "@/components/ui/button";
@@ -144,6 +144,45 @@ export const RichEditor = ({ content, onChange }: RichEditorProps) => {
                 } catch (err) {
                     console.error("Upload failed", err);
                     alert("이미지 업로드에 실패했습니다. (설정 확인 필요)");
+                }
+            }
+        };
+        input.click();
+    }, [editor]);
+
+    const insertImageGallery = useCallback(async () => {
+        const input = document.createElement("input");
+        input.type = "file";
+        input.accept = "image/*";
+        input.multiple = true;
+        input.onchange = async () => {
+            if (input.files && input.files.length > 0) {
+                const files = Array.from(input.files);
+                const urls: string[] = [];
+
+                for (const file of files) {
+                    const formData = new FormData();
+                    formData.append("file", file);
+                    try {
+                        const res = await fetch("/api/admin/upload", {
+                            method: "POST",
+                            body: formData,
+                        });
+                        if (!res.ok) throw new Error("Upload failed");
+                        const data = await res.json();
+                        if (data.url) urls.push(data.url);
+                    } catch (err) {
+                        console.error("Gallery upload failed", err);
+                    }
+                }
+
+                if (urls.length > 0) {
+                    const imgTags = urls
+                        .map(url => `<img src="${url}" alt="" />`)
+                        .join("\n");
+                    editor?.chain().focus().insertContent(
+                        `<div class="image-gallery">${imgTags}</div><p></p>`
+                    ).run();
                 }
             }
         };
@@ -286,6 +325,10 @@ export const RichEditor = ({ content, onChange }: RichEditorProps) => {
                     <ImageIcon className="h-4 w-4" />
                     <span className="text-xs">사진</span>
                 </Button>
+                <Button variant="ghost" size="sm" onClick={insertImageGallery} className="gap-1" title="이미지 가로 배치 (여러 장 선택)">
+                    <LayoutGrid className="h-4 w-4" />
+                    <span className="text-xs">가로배치</span>
+                </Button>
                 <Button variant="ghost" size="sm" onClick={addYoutube} className="gap-1">
                     <YoutubeIcon className="h-4 w-4" />
                     <span className="text-xs">유튜브</span>
@@ -390,6 +433,24 @@ export const RichEditor = ({ content, onChange }: RichEditorProps) => {
             height: auto;
             border-radius: 8px;
             margin: 10px 0;
+        }
+        /* Image Gallery (Horizontal Layout) */
+        .ProseMirror .image-gallery {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin: 16px 0;
+            padding: 12px;
+            border: 2px dashed #e2e8f0;
+            border-radius: 8px;
+            background: #f8fafc;
+        }
+        .ProseMirror .image-gallery img {
+            flex: 1 1 calc(50% - 4px);
+            max-width: calc(50% - 4px);
+            min-width: 120px;
+            object-fit: cover;
+            margin: 0;
         }
       `}</style>
         </div>

@@ -192,3 +192,38 @@
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
   }
 }
+
+/* Image Gallery - Horizontal Layout (Blog Posts) */
+.image-gallery {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 24px 0;
+}
+
+.image-gallery img {
+  flex: 1 1 calc(50% - 6px);
+  max-width: calc(50% - 6px);
+  min-width: 150px;
+  height: auto;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+/* 3장 이상일 때 균등 배분 */
+.image-gallery img:only-child {
+  max-width: 100%;
+  flex: 1 1 100%;
+}
+
+/* 모바일에서는 세로 배치 */
+@media (max-width: 640px) {
+  .image-gallery {
+    flex-direction: column;
+  }
+
+  .image-gallery img {
+    max-width: 100%;
+    flex: 1 1 100%;
+  }
+}
