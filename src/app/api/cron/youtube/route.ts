@@ -1,15 +1,17 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { TavilySearchProvider } from "@/lib/search/tavily";
+
 import { getFeaturedImage } from "@/lib/images/unsplash";
-import { uploadImageFromUrl, getOrCreateTag, checkVideoExists } from "@/lib/wp-server";
+import { uploadImageFromUrl, getOrCreateTag, checkAutomationDuplicate, checkPostExistsByTitle } from "@/lib/wp-server";
+import { googlePublishUrl } from "@/lib/google-indexing";
 import {
     getAllLatestVideos,
     createVideoPrompt,
     YouTubeVideo,
     channels
 } from "@/lib/youtube-channels";
+import { TavilySearchProvider } from "@/lib/search/tavily";
 import { classifyContent } from "@/lib/category-rules";
 
 // Types
@@ -28,38 +30,40 @@ const WP_AUTH = (process.env.WP_AUTH || "").trim();
 // Gemini로 블로그 글 생성
 async function generateFromVideo(video: YouTubeVideo): Promise<{ title: string; content: string }> {
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
-    const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
+    const model = genAI.getGenerativeModel({ model: "gemini-flash-lite-latest" });
 
     // video.id는 footer embed용으로만 사용하고, 프롬프트에는 포함하지 않음 (상단 오염 방지)
-    const prompt = `${createVideoPrompt(video)}
+    const prompt = `현재 연도는 **2026년**입니다. 당신은 전문 IT 분석가로서 아래 정보를 바탕으로 최신 트렌드를 반영한 깊이 있는 블로그 포스팅을 작성해야 합니다.
+${createVideoPrompt(video)}
 
-## 작성 가이드
-1. **제목**: SEO 최적화된 매력적인 한글 제목 (30자 이내). 유튜브 스타일보다는 전문적인 블로그/뉴스 기사 스타일로 작성.
-2. **본문 구성**:
-   - **서론**: 독자의 호기심을 자극하며 주제를 소개 (2-3문장)
-   - **본론**: 핵심 내용을 논리적으로 구성 (소제목 <h3> 사용). 각 소제목 섹션은 깊이 있는 분석과 정보를 제공해야 함.
-   - **결론**: 전체 내용을 요약하고 향후 전망이나 독자에게 주는 시사점 제시.
-   
-3. **이미지 배치 규칙 (매우 중요)**:
-   - 글의 내용을 풍부하게 하기 위해 **본문 중간중간에 이미지가 들어갈 위치를 지정**해야 함.
-   - 이미지가 필요한 곳에 다음과 같은 형식의 **플레이스홀더**를 삽입할 것:
-     **\`[IMAGE: 검색어]\`**
-   - 예시: \`[IMAGE: Galaxy S24 Ultra display]\`, \`[IMAGE: artificial intelligence chip architecture]\`
-   - **검색어는 반드시 영어로 작성**할 것.
-   - 최소 2개, 최대 4개의 이미지를 적절한 위치에 배치할 것.
+## 작성 원칙 (매우 중요)
+1. **분량**: 반드시 **공백 제외 3000자 이상** 작성하세요. 주제에 대해 아주 상세하고 심도 있게 다루어야 합니다. (매우 중요)
+2. **최신성**: 반드시 **2026년의 시점**에서 작성하세요. 과거 연도(2023, 2024 등)가 언급되지 않도록 주의하고, 필요한 경우 "2026년 최신 리뷰", "2026년 현재 시장 상황" 등의 표현을 사용하세요.
+3. **어조**: 전문 IT 칼럼니스트 또는 기술 분석가의 어조로 작성하세요. "~합니다", "~이다" 체를 혼용하되 전문성을 유지하세요.
+4. **독자**: IT에 관심이 많은 일반인부터 전문가까지 아우를 수 있는 수준으로 작성하세요.
 
-4. **금지 사항 (Strict Rules)**:
-   - **유튜브 영상 주소나 임베드 코드를 절대 포함하지 말 것.**
-   - **"이 영상에서는", "유튜버 OOO에 따르면", "영상 출처:", "구독과 좋아요" 등 유튜브나 원작자를 유추할 수 있는 그 어떤 멘트도 금지.**
-   - 마치 작성자가 직접 취재하거나 분석한 것처럼 전문적인 어조로 작성할 것 (\"~했습니다\" 또는 \"~하다\" 체는 무관하나 일관성 유지).
+## 본문 구성 지침
+- **제목**: SEO 최적화된 매력적이고 전문적인 한글 제목 (30자 이내).
+- **서론**: 독자의 공감을 이끌어내고 주제의 시의성을 강조하며 시작 (300자 내외).
+- **핵심 요약 (Key Highlights)**: 영상에서 가장 중요한 포인트 3~5가지를 불렛 포인트로 명확하게 정리 (섹션 별도 분리).
+- **심층 분석 및 본문**: 3개 이상의 소제목(<h3>)으로 나누어 상세하게 작성. 각 섹션은 단순히 현상을 나열하는 것이 아니라 배경 지식, 기술적 의미, 시장 영향력 등을 풍부하게 담아야 함.
+- **결론 및 시사점**: 전체 내용을 요약하고, 이 주제가 우리에게 주는 의미나 향후 전망을 전문적으로 서술 (명확한 결론 필수).
 
-## 출력 형식 (JSON)
+## 시각 자료 배치
+- 글의 흐름에 따라 **[IMAGE: (관련 기술/기기 영어 검색어)]** 플레이스홀더를 적절히 삽입하세요.
+- 최소 4개 이상의 이미지가 필요합니다.
+
+## 금지 사항
+- 유튜브, 유튜버 이름, 채널 언급 금지 (마치 직접 분석한 글처럼 작성).
+- 영상 주소나 임베드 코드 본문 내 삽입 금지.
+- "이 영상에서", "영상에 따르면" 등 출처를 밝히는 표현 자제.
+
+## 출력 형식 (JSON Only)
 {
-  "title": "한글 제목 (매력적인)",
-  "content": "HTML 코드 (<body> 태그 내부 내용만. <h3>, <p>, <ul>, <li>, <strong>, [IMAGE: ...] 태그 사용)"
+  "title": "블로그 제목",
+  "content": "HTML 코드 (<body> 내부 내용만. <h3>, <p>, <table>, <ul>, <li>, <strong>, [IMAGE: ...] 태그 사용)"
 }
-
-중요: JSON 문자열만 반환하세요. 마크다운(\` \`\`\`json \`) 을 사용하지 마세요.`;
+JSON 외에 어떤 텍스트도 포함하지 마세요.`;
 
     const result = await model.generateContent(prompt);
     const response = await result.response;
@@ -84,13 +88,14 @@ async function generateFromVideo(video: YouTubeVideo): Promise<{ title: string; 
         finalContent = finalContent.replace(/<figure class="wp-block-embed is-type-video is-provider-youtube[^"]*"[^>]*>[\s\S]*?<\/figure>/gi, '');
 
 
-        // 1. [IMAGE: ...] 플레이스홀더 처리
+        // 1. [IMAGE: ...] 플레이스홀더 처리 (병렬 처리로 속도 개선)
         const imageMatches = finalContent.match(/\[IMAGE: [^\]]+\]/g);
 
         if (imageMatches && imageMatches.length > 0) {
             const searcher = new TavilySearchProvider(process.env.TAVILY_API_KEY || "");
 
-            for (const match of imageMatches) {
+            // 병렬로 이미지 검색 및 처리 시작
+            const imagePromises = imageMatches.map(async (match: string) => {
                 const query = match.replace('[IMAGE: ', '').replace(']', '').trim();
                 let imgHtml = '';
 
@@ -106,6 +111,7 @@ async function generateFromVideo(video: YouTubeVideo): Promise<{ title: string; 
                         imageUrl = bestResult.images[0];
                         imageCredit = 'Source: Internet';
                     } else {
+                        // Fallback to Unsplash inside parallel task
                         const unsplashImg = await getFeaturedImage(query);
                         if (unsplashImg) {
                             imageUrl = unsplashImg.url;
@@ -123,7 +129,20 @@ async function generateFromVideo(video: YouTubeVideo): Promise<{ title: string; 
                 } catch (e) {
                     console.error(`[YouTube] Failed to replace image placeholder ${match}`, e);
                 }
-                finalContent = finalContent.replace(match, imgHtml);
+
+                return { match, imgHtml };
+            });
+
+            // 모든 이미지 처리가 끝날 때까지 대기
+            const processedImages = await Promise.all(imagePromises);
+
+            // 본문 치환
+            for (const { match, imgHtml } of processedImages) {
+                if (imgHtml) {
+                    finalContent = finalContent.replace(match, imgHtml);
+                } else {
+                    finalContent = finalContent.replace(match, ""); // 실패 시 제거
+                }
             }
         }
 
@@ -180,7 +199,7 @@ async function publishPost(
         },
         body: JSON.stringify({
             title,
-            content,
+            content: content + (meta.automation_source_id ? `\n<!-- automation_source_id: ${meta.automation_source_id} -->` : ""),
             status: 'publish',
             categories: [categoryId],
             tags: tags,
@@ -197,6 +216,66 @@ async function publishPost(
     return res.json();
 }
 
+/**
+ * Finds the index of the channel used in the last published YouTube post.
+ * Uses Tags to identify the channel name.
+ */
+async function getLastUsedChannelIndex(): Promise<number> {
+    try {
+        const youTubeTagId = await getOrCreateTag("YouTube", WP_AUTH);
+        if (!youTubeTagId) return -1;
+
+        // Fetch latest post with YouTube tag
+        const res = await fetch(`${WP_API_URL}/posts?tags=${youTubeTagId}&per_page=1&_embed`, {
+            headers: { 'Authorization': `Basic ${WP_AUTH}` },
+            cache: 'no-store'
+        });
+
+        if (!res.ok) return -1;
+        const posts = await res.json();
+        if (posts.length === 0) return -1;
+
+        const lastPost = posts[0];
+
+        // Check Tags for Channel Name
+        // We need to fetch tag details because embed might not give full names easily or we just scan IDs
+        // But simpler: Check if we saved 'youtube_channel' in meta?
+        if (lastPost.meta?.youtube_channel) {
+            const chName = lastPost.meta.youtube_channel;
+            const idx = channels.findIndex(c => c.name === chName);
+            if (idx !== -1) {
+                console.log(`[YouTube] Found last used channel via Meta: ${chName} (Index ${idx})`);
+                return idx;
+            }
+        }
+
+        // Fallback: Check tags
+        // This requires fetching all tags of the post
+        if (lastPost.tags && lastPost.tags.length > 0) {
+            // This is expensive (N requests), but okay for cron.
+            // Better: fetch all tags involved.
+            const tagsRes = await fetch(`${WP_API_URL}/tags?include=${lastPost.tags.join(',')}`, {
+                headers: { 'Authorization': `Basic ${WP_AUTH}` }
+            });
+            if (tagsRes.ok) {
+                const tags = await tagsRes.json();
+                for (const t of tags) {
+                    const idx = channels.findIndex(c => c.name.toLowerCase() === t.name.toLowerCase());
+                    if (idx !== -1) {
+                        console.log(`[YouTube] Found last used channel via Tag: ${channels[idx].name} (Index ${idx})`);
+                        return idx;
+                    }
+                }
+            }
+        }
+
+        return -1;
+    } catch (e) {
+        console.error("[YouTube] Error finding last channel:", e);
+        return -1;
+    }
+}
+
 export async function GET(request: NextRequest) {
     // Auth check
     const authHeader = request.headers.get("authorization");
@@ -206,81 +285,101 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-        console.log("[YouTube] 🎬 Starting YouTube-based post generation (Rotation Mode)...");
+        console.log("[YouTube] 🎬 Starting YouTube-based post generation (Stateful Rotation)...");
 
-        // 1. 채널 로테이션 로직 (Cron 실행 시)
-        // 사용자의 요청: "랜덤이 아닌 유튜브 채널 별 순서를 정해 로테이션 할 것"
-        // 6시간마다 실행되므로, 현재 시간을 기준으로 채널을 선택합니다.
-        // 채널: 0:EOAG(잇섭), 1:TechMong, 2:Jooyon, 3:Bulsit
-        // const hour = new Date().getHours();
-        const hour = 0; // Force Itsub (Index 0)
-        const kstHour = (hour + 9) % 24; // Vercel is UTC, convert to KST approximation or just rely on consistent UTC hour.
-        // Actually Vercel server time is UTC. Cron schedule `0 */6 * * *` runs at 0, 6, 12, 18 UTC.
-        // Using `hour % channels.length` is deterministic.
+        // Add random jitter to prevent simultaneous execution race conditions
+        const jitter = Math.floor(Math.random() * 5000);
+        await new Promise(resolve => setTimeout(resolve, jitter));
 
-        const channelIndex = hour % channels.length;
-        const selectedChannel = channels[channelIndex]; // 하나만 선택
+        // 1. Determine Next Channel (Stateful Rotation)
+        let initialChannelIndex = 0;
 
-        console.log(`[YouTube] 🔄 Selected Channel for this hour (${hour}h): ${selectedChannel.name} (Index ${channelIndex})`);
+        // Check for manual force
+        const { searchParams } = new URL(request.url);
+        const forceIndex = searchParams.get('force');
 
-        // 2. 전체 영상 가져오기 (API 효율을 위해 개선 가능하지만 지금은 유지)
-        const allVideos = await getAllLatestVideos();
-        const channelVideos = allVideos
-            .filter(v => v.channelName === selectedChannel.name); // ID가 아닌 Name으로 필터링 주의 (channels[i].name과 video.channelName 일치 여부 확인 필요)
-        // lib/youtube-channels.ts에서 channelName이 일치하게 나오는지 확인. 보통 ID로 하는게 안전함.
-        // allVideos 반환값에 channelId가 있음.
-
-        const targetVideos = allVideos.filter(v => v.channelId === selectedChannel.id);
-
-        console.log(`[YouTube] Found ${targetVideos.length} videos for ${selectedChannel.name}`);
-
-        if (targetVideos.length === 0) {
-            return NextResponse.json({
-                success: true,
-                message: `No videos found for channel ${selectedChannel.name}`,
-                rotation: { hour, selectedChannel: selectedChannel.name }
-            });
+        if (forceIndex) {
+            initialChannelIndex = parseInt(forceIndex);
+            console.log(`[YouTube] 🔧 Manual Override: Forcing channel index to ${initialChannelIndex}`);
+        } else {
+            // Automatic Rotation
+            const lastIdx = await getLastUsedChannelIndex();
+            initialChannelIndex = (lastIdx !== -1) ? (lastIdx + 1) % channels.length : 0;
+            console.log(`[YouTube] 🔄 Rotation start: index ${initialChannelIndex}`);
         }
 
-        // 3. 중복 체크 및 최신 영상 선정
         let targetVideo: YouTubeVideo | null = null;
+        let selectedChannel = channels[initialChannelIndex];
+        let checkedVideosLog: any[] = [];
 
-        // targetVideos는 이미 최신순 정렬되어 있다고 가정 (RSS 파싱 순서)
-        for (const video of targetVideos) {
-            const exists = await checkVideoExists(video.id, WP_AUTH);
-            if (!exists) {
-                targetVideo = video;
-                break; // 가장 최신이면서 발행 안 된 것 찾음
-            } else {
-                console.log(`[YouTube] Skipping duplicate: "${video.title}"`);
+        // Try up to 2 channels sequentially to ensure we find something to post
+        for (let attempt = 0; attempt < 2; attempt++) {
+            const channelIdx = (initialChannelIndex + attempt) % channels.length;
+            selectedChannel = channels[channelIdx];
+            console.log(`[YouTube] 🎯 Checking Channel: ${selectedChannel.name} (Attempt ${attempt + 1})`);
+
+            const { videos: allVideos } = await getAllLatestVideos(selectedChannel.name);
+            const targetVideos = allVideos.filter(v => v.channelId === selectedChannel.id);
+
+            if (targetVideos.length === 0) {
+                console.log(`[YouTube] ⚠️ No recent (14d) videos for ${selectedChannel.name}.`);
+                continue;
             }
+
+            // Check top 5 videos of the channel
+            const checkLimit = Math.min(targetVideos.length, 5);
+            const candidateVideos = targetVideos.slice(0, checkLimit);
+
+            console.log(`[YouTube] 🔍 Checking top ${checkLimit} videos for duplicates...`);
+
+            for (const v of candidateVideos) {
+                const { exists, matchedPost } = await checkAutomationDuplicate(`youtube_${v.id}`, WP_AUTH);
+                let titleExists = false;
+                if (!exists) titleExists = await checkPostExistsByTitle(v.title, WP_AUTH);
+
+                const isDuplicate = exists || titleExists;
+                checkedVideosLog.push({
+                    channel: selectedChannel.name,
+                    id: v.id,
+                    title: v.title,
+                    isDuplicate,
+                    reason: exists ? `ID Match (${matchedPost?.id})` : (titleExists ? "Title Match" : "None")
+                });
+
+                if (!isDuplicate) {
+                    targetVideo = v;
+                    break;
+                }
+            }
+
+            if (targetVideo) break;
+            console.log(`[YouTube] ⏭️ All videos for ${selectedChannel.name} are duplicates. Trying next channel...`);
         }
 
         if (!targetVideo) {
             return NextResponse.json({
                 success: true,
-                message: `All recent videos for ${selectedChannel.name} already posted`,
-                rotation: { hour, selectedChannel: selectedChannel.name }
+                message: "Tested multiple channels but all recent videos are duplicates",
+                debug: { checkedVideos: checkedVideosLog }
             });
         }
+
+        console.log(`[YouTube] ✅ Final Selection: "${targetVideo.title}" (${targetVideo.id}) from ${selectedChannel.name}`);
 
         console.log(`[YouTube] ✅ Selected Video: "${targetVideo.title}" (${targetVideo.id})`);
 
-        // 4. 글 생성 및 발행
+        // 4. Generate Content
         const { title, content } = await generateFromVideo(targetVideo);
 
-        // 4-1. 카테고리 분류
-        const categoryId = classifyContent(title, content);
-        if (categoryId === 1) { // 1 = 기타
-            console.log(`[YouTube] ⚠️ "${title}" classified as OTHER (non-IT), skipping`);
-            return NextResponse.json({
-                success: false,
-                reason: 'Skipped non-IT content',
-                video: targetVideo.title
-            });
+        // 4-1. Category
+        let categoryId = classifyContent(title, content);
+        // Manual override for hardware/PC
+        if (title.includes("미니PC") || title.includes("미니 컴퓨터") || title.includes("조립컴") || title.includes("노트북")) {
+            categoryId = 4; // Gadget
         }
+        if (categoryId === 1) categoryId = 9; // Fallback from Other to Tech
 
-        // 4-2. 썸네일/이미지 처리 (Feature Image)
+        // 4-2. Image
         let featuredMediaId = 0;
         let imageUrl = "";
         let imageCredit = "";
@@ -304,38 +403,61 @@ export async function GET(request: NextRequest) {
         }
 
         if (WP_AUTH && imageUrl) {
-            const mid = await uploadImageFromUrl(imageUrl, title, WP_AUTH);
-            if (mid) featuredMediaId = mid;
+            const uploaded = await uploadImageFromUrl(imageUrl, title, WP_AUTH);
+            if (uploaded) featuredMediaId = uploaded.id;
         }
 
         const featuredImageHtml = `
-                    <figure class="wp-block-image size-large">
-                        <img src="${imageUrl}" alt="${title}"/>
-                        <figcaption>${imageCredit}</figcaption>
-                    </figure>
-                `;
+            <figure class="wp-block-image size-large">
+                <img src="${imageUrl}" alt="${title}"/>
+                <figcaption>${imageCredit}</figcaption>
+            </figure>
+        `;
 
-        // 4-3. 발행
+        // 4-3. Publish
+        // Create Tags: YouTube, Channel Name
         const youTubeTagId = await getOrCreateTag("YouTube", WP_AUTH);
+        const channelTagId = await getOrCreateTag(selectedChannel.name, WP_AUTH); // Save Channel Name as Tag!
+
+        const tagsToSave = [];
+        if (youTubeTagId) tagsToSave.push(youTubeTagId);
+        if (channelTagId) tagsToSave.push(channelTagId);
+
+        // [Race Condition Check] Final check right before publishing
+        const { exists: finalExists } = await checkAutomationDuplicate(`youtube_${targetVideo.id}`, WP_AUTH);
+        if (finalExists) {
+            console.log(`[YouTube] 🛑 Duplicate detected in final check for ${targetVideo.id}. Skipping.`);
+            return NextResponse.json({ success: true, message: "Duplicate detected in final check" });
+        }
+
         const post = await publishPost(
             title,
             content,
             categoryId,
             featuredImageHtml,
             featuredMediaId,
-            youTubeTagId ? [youTubeTagId] : [],
-            { youtube_source_id: targetVideo.id, youtube_channel: targetVideo.channelName }
+            tagsToSave,
+            {
+                automation_source_id: `youtube_${targetVideo.id}`,
+                youtube_source_id: targetVideo.id,
+                youtube_channel: selectedChannel.name // Save for rotation logic
+            }
         );
 
         console.log(`[YouTube] 🚀 Published post ID: ${post.id}`);
+
+        // Google Indexing API 알림 (비동기로 실행하여 응답 지연 방지)
+        googlePublishUrl(post.link).catch(err => {
+            console.error("[YouTube] Google Indexing failed:", err);
+        });
 
         return NextResponse.json({
             success: true,
             id: post.id,
             title: post.link,
             rotation: {
-                hour,
-                selectedChannel: selectedChannel.name
+                previous: await getLastUsedChannelIndex(),
+                current: selectedChannel.name
             }
         });
 

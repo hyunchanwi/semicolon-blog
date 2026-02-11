@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
         // 3. AI 요약 생성
         console.log(`[Summarize] Generating new summary for post ${postId || 'unknown'}`);
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
-        const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
+        const model = genAI.getGenerativeModel({ model: "gemini-flash-lite-latest" });
 
         const prompt = `
 다음 블로그 글의 핵심 내용을 한국어로 3-5개의 핵심 포인트로 요약해주세요.
