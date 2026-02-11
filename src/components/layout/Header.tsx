@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { GoogleTranslate, useLanguageSwitch } from "@/components/GoogleTranslate";
 import { LoginButton } from "@/components/auth/LoginButton";
+import { SubscribeButton } from "@/components/subscribe/SubscribeButton";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
 const navLinks = [
@@ -91,8 +92,9 @@ export const Header = () => {
                             </Link>
                         </nav>
 
-                        {/* Language Buttons + Theme Toggle (Desktop) */}
+                        {/* Subscribe + Language + Theme Toggle (Desktop) */}
                         <div className="hidden md:flex items-center gap-2">
+                            <SubscribeButton />
                             <ThemeToggle />
                             <div className="flex bg-slate-100/50 dark:bg-slate-800/50 p-1 rounded-full backdrop-blur-sm">
                                 <Button
@@ -203,7 +205,10 @@ export const Header = () => {
                                                 🇺🇸 English
                                             </Button>
                                         </div>
-                                        <LoginButton />
+                                        <div className="space-y-3">
+                                            <SubscribeButton />
+                                            <LoginButton />
+                                        </div>
                                     </div>
                                 </div>
                             </SheetContent>
