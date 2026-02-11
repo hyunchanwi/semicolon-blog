@@ -7,14 +7,26 @@
 export interface TocItem {
     id: string;
     text: string;
-    level: number; // 2 or 3
+    level: number; // 2, 3, 4
 }
 
 /**
- * HTML 태그 내 텍스트를 추출합니다.
+ * HTML 태그 내 텍스트를 추출하고 엔티티를 디코딩합니다.
  */
 function stripHtmlTags(html: string): string {
-    return html.replace(/<[^>]*>/g, '').trim();
+    // 1. 태그 제거
+    let text = html.replace(/<[^>]*>/g, '');
+
+    // 2. 주요 HTML 엔티티 처리
+    text = text
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'");
+
+    return text.trim();
 }
 
 /**
@@ -23,6 +35,7 @@ function stripHtmlTags(html: string): string {
 function generateId(text: string, idCounts: Record<string, number>): string {
     let baseId = text
         .toLowerCase()
+        // 한글(완성형, 자모), 영문, 숫자, 공백, 하이픈 허용
         .replace(/[^\w\uAC00-\uD7AF\u1100-\u11FF\u3130-\u318F\s-]/g, '')
         .replace(/\s+/g, '-')
         .replace(/-+/g, '-')
@@ -43,6 +56,7 @@ function generateId(text: string, idCounts: Record<string, number>): string {
 /**
  * HTML 콘텐츠를 파싱하여 목차 데이터를 추출하고,
  * 각 헤딩에 고유 ID를 주입한 수정된 HTML을 반환합니다.
+ * 지원 태그: h1, h2, h3, h4
  */
 export function processContentForTOC(html: string): {
     content: string;
@@ -51,14 +65,20 @@ export function processContentForTOC(html: string): {
     const toc: TocItem[] = [];
     const idCounts: Record<string, number> = {};
 
-    // h2, h3 태그 매칭 (속성 포함)
-    const headingRegex = /<(h[23])([^>]*)>([\s\S]*?)<\/\1>/gi;
+    // h1, h2, h3, h4 태그 매칭 (속성 포함)
+    // h1은 주로 제목이지만 본문에 쓰인 경우도 포함 (level 2로 취급하거나 별도 처리)
+    const headingRegex = /<(h[1234])([^>]*)>([\s\S]*?)<\/\1>/gi;
 
     const content = html.replace(headingRegex, (match, tag, attrs, innerHtml) => {
         const text = stripHtmlTags(innerHtml);
         if (!text) return match;
 
-        const level = tag.toLowerCase() === 'h2' ? 2 : 3;
+        const tagName = tag.toLowerCase();
+        let level = 2;
+        if (tagName === 'h3') level = 3;
+        if (tagName === 'h4') level = 4;
+        // h1도 level 2로 처리 (TOC 최상위)
+
         const id = generateId(text, idCounts);
 
         toc.push({ id, text, level });

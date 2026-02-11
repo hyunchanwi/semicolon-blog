@@ -8,9 +8,8 @@ import { AISummaryWrapper } from "@/components/post/AISummaryWrapper";
 import { CoupangProducts } from "@/components/post/CoupangProducts";
 import { GoogleAdUnit } from "@/components/ads/GoogleAdUnit";
 import { SubscribeForm } from "@/components/subscribe/SubscribeForm";
-import { TableOfContents } from "@/components/blog/TableOfContents";
 import { ShareButtons } from "@/components/post/ShareButtons";
-import { splitContentForAds } from "@/lib/ads";
+import { PostContentLayout } from "@/components/blog/PostContentLayout";
 import { processContentForTOC } from "@/lib/toc";
 import type { Metadata } from "next";
 
@@ -157,47 +156,11 @@ export default async function BlogPostPage({ params }: Props) {
                 savedSummary={post.meta?.ai_summary}
             />
 
-            {/* Content + TOC Sidebar */}
-            <div className={`flex gap-8 ${hasToc ? '' : 'max-w-4xl mx-auto'}`}>
-                {/* Main Content */}
-                <div
-                    className="prose prose-xl prose-slate dark:prose-invert max-w-none flex-1 min-w-0
-          prose-headings:font-bold prose-headings:text-slate-900 prose-headings:tracking-tight
-          prose-p:text-slate-800 prose-p:leading-8 prose-p:text-[1.125rem] md:prose-p:text-[1.2rem]
-          prose-li:text-slate-800 prose-li:text-[1.125rem] md:prose-li:text-[1.2rem]
-          prose-a:text-indigo-600 prose-a:no-underline hover:prose-a:underline
-          prose-img:rounded-3xl prose-img:shadow-lg prose-img:my-10
-          prose-code:bg-slate-100 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-md prose-code:text-indigo-600 prose-code:font-semibold
-          prose-pre:bg-slate-900 prose-pre:rounded-2xl
-          [&>h2]:text-3xl [&>h2]:mt-12 [&>h2]:mb-6
-          [&>h3]:text-2xl [&>h3]:mt-10 [&>h3]:mb-4"
-                >
-                    {(() => {
-                        const { firstHalf, secondHalf } = splitContentForAds(processedContent);
-                        return (
-                            <>
-                                <div dangerouslySetInnerHTML={{ __html: firstHalf }} />
-                                {secondHalf && (
-                                    <>
-                                        <div className="my-12">
-                                            <GoogleAdUnit
-                                                slotId="5212379301"
-                                                layout="in-article"
-                                                format="fluid"
-                                                className="w-full"
-                                            />
-                                        </div>
-                                        <div dangerouslySetInnerHTML={{ __html: secondHalf }} />
-                                    </>
-                                )}
-                            </>
-                        );
-                    })()}
-                </div>
-
-                {/* Desktop TOC Sidebar */}
-                {hasToc && <TableOfContents items={toc} />}
-            </div>
+            <PostContentLayout
+                content={processedContent}
+                toc={toc}
+                hasToc={hasToc}
+            />
 
             {/* Social Share Buttons */}
             <div className="max-w-4xl mx-auto">
