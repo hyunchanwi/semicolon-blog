@@ -8,7 +8,9 @@ import { AISummaryWrapper } from "@/components/post/AISummaryWrapper";
 import { CoupangProducts } from "@/components/post/CoupangProducts";
 import { GoogleAdUnit } from "@/components/ads/GoogleAdUnit";
 import { SubscribeForm } from "@/components/subscribe/SubscribeForm";
+import { TableOfContents } from "@/components/blog/TableOfContents";
 import { splitContentForAds } from "@/lib/ads";
+import { processContentForTOC } from "@/lib/toc";
 import type { Metadata } from "next";
 
 interface Props {
@@ -74,8 +76,12 @@ export default async function BlogPostPage({ params }: Props) {
         day: "numeric",
     });
 
+    // TOC 처리: 헤딩에 ID 주입 + 목차 데이터 추출
+    const { content: processedContent, toc } = processContentForTOC(post.content.rendered);
+    const hasToc = toc.length >= 2;
+
     return (
-        <article className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <article className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
             {/* Back Button */}
             <div className="flex items-center justify-between mb-8">
                 <Button
@@ -150,9 +156,18 @@ export default async function BlogPostPage({ params }: Props) {
                 savedSummary={post.meta?.ai_summary}
             />
 
-            {/* Content with In-Article Ad */}
-            <div
-                className="prose prose-xl prose-slate dark:prose-invert max-w-none
+            {/* Mobile TOC */}
+            {hasToc && (
+                <div className="max-w-4xl mx-auto">
+                    <TableOfContents items={toc} />
+                </div>
+            )}
+
+            {/* Content + Desktop TOC Sidebar */}
+            <div className={`flex gap-8 ${hasToc ? '' : 'max-w-4xl mx-auto'}`}>
+                {/* Main Content */}
+                <div
+                    className="prose prose-xl prose-slate dark:prose-invert max-w-none flex-1 min-w-0
           prose-headings:font-bold prose-headings:text-slate-900 prose-headings:tracking-tight
           prose-p:text-slate-800 prose-p:leading-8 prose-p:text-[1.125rem] md:prose-p:text-[1.2rem]
           prose-li:text-slate-800 prose-li:text-[1.125rem] md:prose-li:text-[1.2rem]
@@ -162,28 +177,32 @@ export default async function BlogPostPage({ params }: Props) {
           prose-pre:bg-slate-900 prose-pre:rounded-2xl
           [&>h2]:text-3xl [&>h2]:mt-12 [&>h2]:mb-6
           [&>h3]:text-2xl [&>h3]:mt-10 [&>h3]:mb-4"
-            >
-                {(() => {
-                    const { firstHalf, secondHalf } = splitContentForAds(post.content.rendered);
-                    return (
-                        <>
-                            <div dangerouslySetInnerHTML={{ __html: firstHalf }} />
-                            {secondHalf && (
-                                <>
-                                    <div className="my-12">
-                                        <GoogleAdUnit
-                                            slotId="5212379301" // In-Article Ad Slot
-                                            layout="in-article"
-                                            format="fluid"
-                                            className="w-full"
-                                        />
-                                    </div>
-                                    <div dangerouslySetInnerHTML={{ __html: secondHalf }} />
-                                </>
-                            )}
-                        </>
-                    );
-                })()}
+                >
+                    {(() => {
+                        const { firstHalf, secondHalf } = splitContentForAds(processedContent);
+                        return (
+                            <>
+                                <div dangerouslySetInnerHTML={{ __html: firstHalf }} />
+                                {secondHalf && (
+                                    <>
+                                        <div className="my-12">
+                                            <GoogleAdUnit
+                                                slotId="5212379301"
+                                                layout="in-article"
+                                                format="fluid"
+                                                className="w-full"
+                                            />
+                                        </div>
+                                        <div dangerouslySetInnerHTML={{ __html: secondHalf }} />
+                                    </>
+                                )}
+                            </>
+                        );
+                    })()}
+                </div>
+
+                {/* Desktop TOC Sidebar */}
+                {hasToc && <TableOfContents items={toc} />}
             </div>
 
             {/* Bottom Ad Unit */}
