@@ -45,7 +45,7 @@ export const Header = () => {
                         {/* Logo */}
                         <Link
                             href="/"
-                            className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-700 hover:to-primary transition-all duration-300"
+                            className="text-xl md:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-700 hover:to-primary transition-all duration-300"
                         >
                             Semicolon;
                         </Link>
@@ -118,101 +118,104 @@ export const Header = () => {
                             <LoginButton />
                         </div>
 
-                        {/* Mobile Menu */}
-                        <Sheet open={isOpen} onOpenChange={setIsOpen}>
-                            <SheetTrigger asChild className="md:hidden">
-                                <Button variant="ghost" size="icon" className="rounded-full hover:bg-slate-100">
-                                    <Menu className="h-6 w-6 text-slate-700" />
-                                </Button>
-                            </SheetTrigger>
-                            <SheetContent side="right" className="glass-solid w-full sm:w-[350px] p-0 border-l border-white/20">
-                                <div className="h-full flex flex-col bg-white/60 backdrop-blur-xl">
-                                    <div className="p-6 pt-12 flex-1 overflow-y-auto">
-                                        <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-6 px-2">Menu</h2>
+                        {/* Mobile Actions */}
+                        <div className="flex items-center gap-1 md:hidden">
+                            <SubscribeButton />
+                            <Sheet open={isOpen} onOpenChange={setIsOpen}>
+                                <SheetTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="rounded-full hover:bg-slate-100">
+                                        <Menu className="h-6 w-6 text-slate-700" />
+                                    </Button>
+                                </SheetTrigger>
+                                <SheetContent side="right" className="glass-solid w-full sm:w-[350px] p-0 border-l border-white/20">
+                                    <div className="h-full flex flex-col bg-white/60 backdrop-blur-xl">
+                                        <div className="p-6 pt-12 flex-1 overflow-y-auto">
+                                            <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-6 px-2">Menu</h2>
 
-                                        <div className="flex flex-col gap-3">
-                                            {/* Home Link */}
-                                            <Link
-                                                href="/"
-                                                onClick={() => setIsOpen(false)}
-                                                className="group px-6 py-4 rounded-3xl text-lg font-bold text-slate-800 bg-white/50 border border-white/40 hover:bg-gradient-to-r hover:from-slate-50 hover:to-white hover:shadow-lg transition-all duration-300 transform active:scale-95 flex items-center gap-3"
-                                            >
-                                                <span className="text-2xl">🏠</span>
-                                                <span className="group-hover:translate-x-1 transition-transform duration-300">Home</span>
-                                            </Link>
-
-                                            {/* Blog with Expandable Categories */}
-                                            <div className="rounded-3xl bg-white/50 border border-white/40 overflow-hidden transition-all duration-300">
-                                                <button
-                                                    onClick={() => setIsBlogExpanded(!isBlogExpanded)}
-                                                    className="w-full px-6 py-4 text-lg font-bold text-slate-800 hover:bg-gradient-to-r hover:from-slate-50 hover:to-white hover:shadow-lg transition-all duration-300 flex items-center justify-between group"
+                                            <div className="flex flex-col gap-3">
+                                                {/* Home Link */}
+                                                <Link
+                                                    href="/"
+                                                    onClick={() => setIsOpen(false)}
+                                                    className="group px-6 py-4 rounded-3xl text-lg font-bold text-slate-800 bg-white/50 border border-white/40 hover:bg-gradient-to-r hover:from-slate-50 hover:to-white hover:shadow-lg transition-all duration-300 transform active:scale-95 flex items-center gap-3"
                                                 >
-                                                    <div className="flex items-center gap-3">
-                                                        <span className="text-2xl">📚</span>
-                                                        <span className="group-hover:translate-x-1 transition-transform duration-300">Blog</span>
-                                                    </div>
-                                                    <ChevronDown
-                                                        className={`h-5 w-5 transition-transform duration-300 ${isBlogExpanded ? 'rotate-180' : ''}`}
-                                                    />
-                                                </button>
+                                                    <span className="text-2xl">🏠</span>
+                                                    <span className="group-hover:translate-x-1 transition-transform duration-300">Home</span>
+                                                </Link>
 
-                                                {/* Expandable Categories */}
-                                                <div
-                                                    className={`transition-all duration-500 ease-in-out ${isBlogExpanded
-                                                        ? 'max-h-96 opacity-100'
-                                                        : 'max-h-0 opacity-0'
-                                                        } overflow-hidden`}
-                                                >
-                                                    <div className="px-3 py-3 space-y-2 bg-gradient-to-b from-slate-50/50 to-transparent">
-                                                        {blogCategories.map((cat, index) => (
-                                                            <Link
-                                                                key={cat.href}
-                                                                href={cat.href}
-                                                                onClick={() => {
-                                                                    setIsOpen(false);
-                                                                    setIsBlogExpanded(false);
-                                                                }}
-                                                                className="group flex items-center gap-3 px-4 py-3 rounded-2xl text-slate-700 hover:bg-gradient-to-r hover:from-white hover:to-slate-50 hover:shadow-md transition-all duration-300 transform hover:translate-x-2 active:scale-95"
-                                                                style={{
-                                                                    transitionDelay: isBlogExpanded ? `${index * 50}ms` : '0ms'
-                                                                }}
-                                                            >
-                                                                <span className="text-xl">{cat.icon}</span>
-                                                                <span className="font-medium group-hover:text-primary transition-colors">
-                                                                    {cat.label}
-                                                                </span>
-                                                            </Link>
-                                                        ))}
+                                                {/* Blog with Expandable Categories */}
+                                                <div className="rounded-3xl bg-white/50 border border-white/40 overflow-hidden transition-all duration-300">
+                                                    <button
+                                                        onClick={() => setIsBlogExpanded(!isBlogExpanded)}
+                                                        className="w-full px-6 py-4 text-lg font-bold text-slate-800 hover:bg-gradient-to-r hover:from-slate-50 hover:to-white hover:shadow-lg transition-all duration-300 flex items-center justify-between group"
+                                                    >
+                                                        <div className="flex items-center gap-3">
+                                                            <span className="text-2xl">📚</span>
+                                                            <span className="group-hover:translate-x-1 transition-transform duration-300">Blog</span>
+                                                        </div>
+                                                        <ChevronDown
+                                                            className={`h-5 w-5 transition-transform duration-300 ${isBlogExpanded ? 'rotate-180' : ''}`}
+                                                        />
+                                                    </button>
+
+                                                    {/* Expandable Categories */}
+                                                    <div
+                                                        className={`transition-all duration-500 ease-in-out ${isBlogExpanded
+                                                            ? 'max-h-96 opacity-100'
+                                                            : 'max-h-0 opacity-0'
+                                                            } overflow-hidden`}
+                                                    >
+                                                        <div className="px-3 py-3 space-y-2 bg-gradient-to-b from-slate-50/50 to-transparent">
+                                                            {blogCategories.map((cat, index) => (
+                                                                <Link
+                                                                    key={cat.href}
+                                                                    href={cat.href}
+                                                                    onClick={() => {
+                                                                        setIsOpen(false);
+                                                                        setIsBlogExpanded(false);
+                                                                    }}
+                                                                    className="group flex items-center gap-3 px-4 py-3 rounded-2xl text-slate-700 hover:bg-gradient-to-r hover:from-white hover:to-slate-50 hover:shadow-md transition-all duration-300 transform hover:translate-x-2 active:scale-95"
+                                                                    style={{
+                                                                        transitionDelay: isBlogExpanded ? `${index * 50}ms` : '0ms'
+                                                                    }}
+                                                                >
+                                                                    <span className="text-xl">{cat.icon}</span>
+                                                                    <span className="font-medium group-hover:text-primary transition-colors">
+                                                                        {cat.label}
+                                                                    </span>
+                                                                </Link>
+                                                            ))}
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
                                         </div>
-                                    </div>
 
-                                    <div className="p-6 border-t border-slate-100 bg-white/40 backdrop-blur-sm">
-                                        <div className="flex gap-2 mb-6">
-                                            <Button
-                                                variant="outline"
-                                                className="flex-1 rounded-2xl h-12 text-base font-medium border-slate-200"
-                                                onClick={switchToKorean}
-                                            >
-                                                🇰🇷 한국어
-                                            </Button>
-                                            <Button
-                                                className="flex-1 rounded-2xl h-12 text-base font-medium bg-slate-900 text-white shadow-lg shadow-slate-900/20"
-                                                onClick={switchToEnglish}
-                                            >
-                                                🇺🇸 English
-                                            </Button>
-                                        </div>
-                                        <div className="space-y-3">
-                                            <SubscribeButton />
-                                            <LoginButton />
+                                        <div className="p-6 border-t border-slate-100 bg-white/40 backdrop-blur-sm">
+                                            <div className="flex gap-2 mb-6">
+                                                <Button
+                                                    variant="outline"
+                                                    className="flex-1 rounded-2xl h-12 text-base font-medium border-slate-200"
+                                                    onClick={switchToKorean}
+                                                >
+                                                    🇰🇷 한국어
+                                                </Button>
+                                                <Button
+                                                    className="flex-1 rounded-2xl h-12 text-base font-medium bg-slate-900 text-white shadow-lg shadow-slate-900/20"
+                                                    onClick={switchToEnglish}
+                                                >
+                                                    🇺🇸 English
+                                                </Button>
+                                            </div>
+                                            <div className="space-y-3">
+                                                <SubscribeButton />
+                                                <LoginButton />
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            </SheetContent>
-                        </Sheet>
+                                </SheetContent>
+                            </Sheet>
+                        </div>
                     </div>
                 </div>
             </header>

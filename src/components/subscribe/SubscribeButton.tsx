@@ -103,8 +103,8 @@ export function SubscribeButton() {
                 onClick={handleClick}
                 variant="ghost"
                 size="sm"
-                className={`rounded-full px-4 font-medium transition-all duration-300 transform hover:-translate-y-0.5 gap-1.5 ${isSubscribed
-                        ? "text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
+                className={`rounded-full px-3 lg:px-4 font-medium transition-all duration-300 transform hover:-translate-y-0.5 gap-1.5 ${isSubscribed
+                        ? "text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 ring-1 ring-emerald-100 dark:ring-emerald-900/50"
                         : "text-slate-600 dark:text-slate-300 hover:text-primary hover:bg-primary/10"
                     }`}
             >
@@ -113,7 +113,7 @@ export function SubscribeButton() {
                 ) : (
                     <Bell className="h-4 w-4" />
                 )}
-                <span className="hidden lg:inline">
+                <span className={`${isSubscribed ? "inline" : "hidden lg:inline"}`}>
                     {isSubscribed ? "구독 중" : "구독"}
                 </span>
             </Button>
