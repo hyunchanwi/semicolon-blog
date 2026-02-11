@@ -144,7 +144,7 @@ export default function RootLayout({
             <Footer />
             <SubscribeToast />
             <Analytics />
-            <GoogleAnalytics gaId="G-W3HPY5Z44D" />
+            <GoogleAnalytics gaId={process.env.NEXT_PUBLIC_GA_ID || "G-1CKQ2GRTSR"} />
           </SessionProvider>
         </ThemeProvider>
       </body>

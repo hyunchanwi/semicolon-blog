@@ -28,6 +28,8 @@ export default async function EditPostPage({ params }: Props) {
                 content: post.content.rendered,
                 excerpt: post.excerpt.rendered,
                 status: post.status,
+                categories: post.categories,
+                featured_media_url: post._embedded?.['wp:featuredmedia']?.[0]?.source_url,
             }}
             categories={categories.map((c) => ({ id: c.id, name: c.name }))}
         />

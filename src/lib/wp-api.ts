@@ -53,7 +53,7 @@ export interface WPPage {
 export async function getPosts(perPage: number = 10): Promise<WPPost[]> {
     const res = await fetch(
         `${WP_API_URL}/posts?per_page=${perPage}&_embed`,
-        { cache: 'no-store' } // Admin 페이지에서 실시간 동기화
+        { next: { revalidate: 60 } } // 1분 ISR 캐시 (성능 최적화)
     );
     if (!res.ok) throw new Error("Failed to fetch posts");
     return res.json();
@@ -62,7 +62,7 @@ export async function getPosts(perPage: number = 10): Promise<WPPost[]> {
 export async function getPostBySlug(slug: string): Promise<WPPost | null> {
     const res = await fetch(
         `${WP_API_URL}/posts?slug=${slug}&_embed`,
-        { next: { revalidate: 10 } } // 빠른 업데이트
+        { next: { revalidate: 60 } } // 1분 ISR 캐시 (성능 최적화)
     );
     if (!res.ok) throw new Error("Failed to fetch post");
     const posts = await res.json();
@@ -81,7 +81,7 @@ export async function getCategories(): Promise<WPCategory[]> {
 export async function getPostsByCategory(categoryId: number, perPage: number = 10): Promise<WPPost[]> {
     const res = await fetch(
         `${WP_API_URL}/posts?categories=${categoryId}&per_page=${perPage}&_embed`,
-        { cache: 'no-store' } // Admin 페이지에서 실시간 동기화
+        { next: { revalidate: 60 } } // 1분 ISR 캐시 (성능 최적화)
     );
     if (!res.ok) throw new Error("Failed to fetch posts by category");
     return res.json();

@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json();
-        const { title, content, excerpt, status, categories } = body;
+        const { title, content, excerpt, status, categories, featured_media } = body;
 
         if (!title || !content) {
             return NextResponse.json(
@@ -38,6 +38,7 @@ export async function POST(request: NextRequest) {
             excerpt,
             status: status || "draft",
             categories,
+            featured_media,
             meta: aiSummary ? { ai_summary: aiSummary } : undefined,
         });
 
