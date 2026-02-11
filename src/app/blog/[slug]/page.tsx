@@ -157,14 +157,7 @@ export default async function BlogPostPage({ params }: Props) {
                 savedSummary={post.meta?.ai_summary}
             />
 
-            {/* Mobile TOC */}
-            {hasToc && (
-                <div className="max-w-4xl mx-auto">
-                    <TableOfContents items={toc} />
-                </div>
-            )}
-
-            {/* Content + Desktop TOC Sidebar */}
+            {/* Content + TOC Sidebar */}
             <div className={`flex gap-8 ${hasToc ? '' : 'max-w-4xl mx-auto'}`}>
                 {/* Main Content */}
                 <div

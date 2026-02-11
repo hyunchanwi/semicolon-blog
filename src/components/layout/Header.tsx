@@ -192,7 +192,7 @@ export const Header = () => {
                                         </div>
 
                                         <div className="p-6 border-t border-slate-100 bg-white/40 backdrop-blur-sm">
-                                            <div className="flex gap-2 mb-6">
+                                            <div className="flex gap-2 mb-4">
                                                 <Button
                                                     variant="outline"
                                                     className="flex-1 rounded-2xl h-12 text-base font-medium border-slate-200"
@@ -206,6 +206,10 @@ export const Header = () => {
                                                 >
                                                     🇺🇸 English
                                                 </Button>
+                                            </div>
+                                            <div className="flex items-center justify-between mb-4 px-2">
+                                                <span className="text-sm font-medium text-slate-600">화면 모드</span>
+                                                <ThemeToggle />
                                             </div>
                                             <div className="space-y-3">
                                                 <SubscribeButton />
