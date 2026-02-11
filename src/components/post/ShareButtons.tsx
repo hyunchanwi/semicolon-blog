@@ -53,9 +53,9 @@ export function ShareButtons({ title, url }: ShareButtonsProps) {
         );
     };
 
-    const shareToFacebook = () => {
+    const shareToNaverBlog = () => {
         window.open(
-            `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`,
+            `https://blog.naver.com/openapi/share?url=${encodedUrl}&title=${encodedTitle}`,
             "_blank",
             "width=600,height=400"
         );
@@ -91,16 +91,16 @@ export function ShareButtons({ title, url }: ShareButtonsProps) {
                 </svg>
             </Button>
 
-            {/* Facebook */}
+            {/* Naver Blog */}
             <Button
                 variant="outline"
                 size="icon"
-                onClick={shareToFacebook}
-                className="rounded-full w-9 h-9 bg-[#1877F2] hover:bg-[#0C63D4] border-0 text-white"
-                title="Facebook 공유"
+                onClick={shareToNaverBlog}
+                className="rounded-full w-9 h-9 bg-[#03C75A] hover:bg-[#02b350] border-0 text-white"
+                title="네이버 블로그 공유"
             >
                 <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+                    <path d="M16.273 12.845 7.376 0H0v24h7.727V11.155L16.624 24H24V0h-7.727v12.845z" />
                 </svg>
             </Button>
 
