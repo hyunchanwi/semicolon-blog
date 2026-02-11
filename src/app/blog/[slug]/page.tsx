@@ -9,6 +9,7 @@ import { CoupangProducts } from "@/components/post/CoupangProducts";
 import { GoogleAdUnit } from "@/components/ads/GoogleAdUnit";
 import { SubscribeForm } from "@/components/subscribe/SubscribeForm";
 import { TableOfContents } from "@/components/blog/TableOfContents";
+import { ShareButtons } from "@/components/post/ShareButtons";
 import { splitContentForAds } from "@/lib/ads";
 import { processContentForTOC } from "@/lib/toc";
 import type { Metadata } from "next";
@@ -203,6 +204,14 @@ export default async function BlogPostPage({ params }: Props) {
 
                 {/* Desktop TOC Sidebar */}
                 {hasToc && <TableOfContents items={toc} />}
+            </div>
+
+            {/* Social Share Buttons */}
+            <div className="max-w-4xl mx-auto">
+                <ShareButtons
+                    title={stripHtml(post.title.rendered)}
+                    url={`/blog/${post.slug}`}
+                />
             </div>
 
             {/* Bottom Ad Unit */}
