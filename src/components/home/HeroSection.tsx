@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
 
@@ -72,10 +73,13 @@ export const HeroSection = () => {
                         <div className="relative w-full aspect-square max-w-lg mx-auto">
                             <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 to-violet-500/20 rounded-[3rem] rotate-6" />
                             <div className="absolute inset-0 glass rounded-[3rem] shadow-glass overflow-hidden">
-                                <img
+                                <Image
                                     src="https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&q=80&w=1000"
                                     alt="Technology"
-                                    className="w-full h-full object-cover rounded-[3rem]"
+                                    fill
+                                    priority
+                                    className="object-cover"
+                                    sizes="(max-width: 768px) 100vw, 50vw"
                                 />
                             </div>
                         </div>

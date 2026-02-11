@@ -1,11 +1,14 @@
 import Link from "next/link";
-import { getPosts, getCategories, getPostsByCategory, stripHtml, decodeHtmlEntities, getTags } from "@/lib/wp-api";
+import { getPosts, getCategories, getPostsByCategory, stripHtml, decodeHtmlEntities, getTags, type WPPost } from "@/lib/wp-api";
+import { getAdminPosts } from "@/lib/wp-admin-api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, Edit, Eye, Trash2 } from "lucide-react";
 import { DeletePostButton } from "@/components/admin/DeletePostButton";
 import { CategoryFilter } from "@/components/admin/CategoryFilter";
 import { QuickCategorySelect } from "@/components/admin/QuickCategorySelect";
+
+import { VisibilityToggle } from "@/components/admin/VisibilityToggle";
 
 interface Props {
     searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
@@ -18,9 +21,8 @@ export default async function AdminPostsPage({ searchParams }: Props) {
     const categoryId = params.category ? parseInt(params.category as string) : null;
 
     // Fetch posts based on filter
-    const posts = categoryId
-        ? await getPostsByCategory(categoryId, 50)
-        : await getPosts(50);
+    // Fetch posts based on filter (Admin API: fetches all statuses)
+    const posts = await getAdminPosts(50, categoryId) as unknown as WPPost[];
 
     const categories = await getCategories();
     const tags = await getTags();
@@ -59,7 +61,7 @@ export default async function AdminPostsPage({ searchParams }: Props) {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                            {posts.map((post) => (
+                            {posts.map((post: WPPost) => (
                                 <tr key={post.id} className="hover:bg-slate-50/50">
                                     <td className="p-4">
                                         <p className="font-medium text-slate-900">
@@ -93,6 +95,7 @@ export default async function AdminPostsPage({ searchParams }: Props) {
                                     </td>
                                     <td className="p-4">
                                         <div className="flex justify-end gap-2">
+                                            <VisibilityToggle postId={post.id} status={post.status} />
                                             <Button asChild variant="ghost" size="sm" className="rounded-lg">
                                                 <Link href={`/blog/${post.slug}`} target="_blank">
                                                     <Eye className="h-4 w-4" />

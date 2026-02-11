@@ -4,34 +4,41 @@
  * - 영상 정보를 블로그 글 주제로 변환
  */
 
+import { TavilySearchProvider } from "@/lib/search/tavily";
+
 // 테크 유튜버 채널 목록
 // 테크 유튜버 채널 목록
+// 주의: 여기서 설정한 'keywords'와 'category'는 참고용 정보이며, 
+// 실제 영상 수집(Filtering)이나 카테고리 분류(Classification)에는 직접적인 영향을 주지 않습니다.
+// 모든 최신 영상을 수집한 후, 본문 내용을 분석하여 자동으로 카테고리를 판단합니다.
 export const TECH_CHANNELS = [
     {
         name: "잇섭",
         id: "UCdUcjkyZtf-1WJyPPiETF1g",
         category: "gadget",
-        keywords: ["리뷰", "언박싱", "가젯"]
+        keywords: ["리뷰", "언박싱", "가젯"] // Reference only
     },
     {
         name: "테크몽",
         id: "UCFX6adXoyQKxft933NB3rmA",
         category: "tech",
-        keywords: ["테크", "IT", "기술"]
+        keywords: ["테크", "IT", "기술"] // Reference only
     },
     {
-        name: "주연테크",
-        id: "UC1YU436hXVXna8YuqQHCYKQ",
-        category: "hardware",
-        keywords: ["PC", "조립", "하드웨어"]
+        name: "주연",
+        id: "UCB11SAf7WSN4GrCquKoOHrw",
+        category: "gadget",
+        keywords: ["전자기기", "리뷰", "라이프스타일"] // Reference only
     },
     {
         name: "뻘짓연구소",
         id: "UCMYJw-gH6-_LNQzhqfYgDbg",
         category: "experiment",
-        keywords: ["실험", "테스트", "리뷰"]
+        keywords: ["실험", "테스트", "리뷰"] // Reference only
     }
 ];
+
+export const channels = TECH_CHANNELS;
 
 export interface YouTubeVideo {
     id: string;
@@ -49,8 +56,13 @@ export interface YouTubeVideo {
  */
 async function getVideosFromRSS(channelId: string): Promise<YouTubeVideo[]> {
     try {
-        const response = await fetch(`https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`, {
-            next: { revalidate: 3600 }
+        const response = await fetch(`https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}&_t=${Date.now()}`, {
+            cache: 'no-store',
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Cache-Control': 'no-cache, no-store, must-revalidate'
+            }
         });
 
         if (!response.ok) return [];
@@ -58,27 +70,35 @@ async function getVideosFromRSS(channelId: string): Promise<YouTubeVideo[]> {
         const xml = await response.text();
         const channel = TECH_CHANNELS.find(c => c.id === channelId);
 
-        // Simple XML Regex Parsing
-        const entryRegex = /<entry>([\s\S]*?)<\/entry>/g;
+        // Simple XML Regex Parsing (Robust)
+        const entryRegex = /<entry[^>]*>([\s\S]*?)<\/entry>/g;
         const videos: YouTubeVideo[] = [];
 
         let match;
         while ((match = entryRegex.exec(xml)) !== null) {
             const entry = match[1];
-            const idMatch = entry.match(/<yt:videoId>(.*?)<\/yt:videoId>/);
-            const titleMatch = entry.match(/<title>(.*?)<\/title>/);
-            const publishedMatch = entry.match(/<published>(.*?)<\/published>/);
+
+            // Regex using [\s\S]*? for newlines and [^>]*> for attributes
+            const idMatch = entry.match(/<yt:videoId[^>]*>([\s\S]*?)<\/yt:videoId>/) || entry.match(/<id[^>]*>.*?yt:video:([\s\S]*?)<\/id>/);
+            const titleMatch = entry.match(/<title[^>]*>([\s\S]*?)<\/title>/);
+
+            // Try published first, then updated
+            const publishedMatch = entry.match(/<published[^>]*>([\s\S]*?)<\/published>/) || entry.match(/<updated[^>]*>([\s\S]*?)<\/updated>/);
+
             const descMatch = entry.match(/<media:description[^>]*>([\s\S]*?)<\/media:description>/);
-            const thumbMatch = entry.match(/<media:thumbnail url="(.*?)"/);
+            const thumbMatch = entry.match(/<media:thumbnail[^>]*url="([\s\S]*?)"/);
+
+            // Use epoch if no date (fallback) to avoid false positive recency
+            const publishDate = publishedMatch ? publishedMatch[1].trim() : new Date(0).toISOString();
 
             if (idMatch && titleMatch) {
                 videos.push({
                     id: idMatch[1],
                     title: titleMatch[1],
                     description: descMatch ? descMatch[1] : "",
-                    channelName: channel?.name || "YouTube",
+                    channelName: channel?.name || "YouTube", // Force channel name from config
                     channelId: channelId,
-                    publishedAt: publishedMatch ? publishedMatch[1] : new Date().toISOString(),
+                    publishedAt: publishDate,
                     thumbnailUrl: thumbMatch ? thumbMatch[1] : `https://i.ytimg.com/vi/${idMatch[1]}/hqdefault.jpg`,
                     category: channel?.category || "tech"
                 });
@@ -98,7 +118,14 @@ async function getVideosFromRSS(channelId: string): Promise<YouTubeVideo[]> {
 export async function getLatestVideos(
     channelId: string,
     maxResults: number = 5
-): Promise<YouTubeVideo[]> {
+): Promise<{ videos: YouTubeVideo[], tavilyError?: string, debugRaw?: any, debugInfo?: string }> {
+    // ... (previous code) ... (I need to be careful with replace_file_content scope)
+
+    // instead of replacing the whole function, I'll replace the return statement and interface if possible.
+    // But function signature is at the top.
+
+    // I will replace the logic block at the end of getLatestVideos first.
+
     const apiKey = process.env.YOUTUBE_API_KEY;
 
     // 1. Try API if Key exists
@@ -121,7 +148,7 @@ export async function getLatestVideos(
                         const videosData = await videosResponse.json();
                         const channel = TECH_CHANNELS.find(c => c.id === channelId);
 
-                        return videosData.items?.map((item: any) => ({
+                        const apiVideos = videosData.items?.map((item: any) => ({
                             id: item.snippet.resourceId.videoId,
                             title: item.snippet.title,
                             description: item.snippet.description,
@@ -133,6 +160,21 @@ export async function getLatestVideos(
                                 item.snippet.thumbnails?.medium?.url,
                             category: channel?.category || "tech"
                         })) || [];
+
+                        // API 결과가 최신인지 확인 (7일 이내)
+                        const oneWeekAgo = new Date();
+                        oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+                        const hasRecentApiVideos = apiVideos.some((v: any) => new Date(v.publishedAt) >= oneWeekAgo);
+
+                        if (hasRecentApiVideos) {
+                            return {
+                                videos: apiVideos,
+                                debugInfo: "Source: YouTube API (Success)"
+                            };
+                        } else {
+                            console.log(`[YouTube-API] API returned ${apiVideos.length} videos but none are recent. Falling back to RSS/Tavily.`);
+                            // 리턴하지 않고 아래 RSS/Tavily 로직으로 진행
+                        }
                     }
                 }
             }
@@ -143,19 +185,87 @@ export async function getLatestVideos(
 
     // 2. Fallback to RSS
     console.log(`[YouTube] Fallback to RSS for ${channelId}`);
-    const rssVideos = await getVideosFromRSS(channelId);
-    return rssVideos.slice(0, maxResults);
+    let videos = await getVideosFromRSS(channelId);
+
+    // 3. Last Resort: Tavily Search (If RSS is empty or stale)
+    // RSS가 비어있거나, 가져온 영상들이 모두 7일 이전인 경우 Tavily 검색 시도
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+    const hasRecentVideos = videos.some(v => new Date(v.publishedAt) >= oneWeekAgo);
+
+    let tavilyError: string | undefined;
+    let debugRaw: any | undefined;
+    let debugInfo: string | undefined;
+
+    if (videos.length === 0 || !hasRecentVideos) {
+        console.log(`[YouTube] Fallback to Tavily Search for channel ${channelId}`);
+        const channelName = TECH_CHANNELS.find(c => c.id === channelId)?.name || "";
+        if (channelName) {
+            try {
+                // Circular dependency를 피하기 위해 동적 임포트 또는 간단한 fetch 사용 권장
+                const result = await getVideosFromTavily(channelName, channelId);
+
+                if (result.debugRaw) {
+                    debugRaw = result.debugRaw;
+                }
+
+                if (result.error) {
+                    tavilyError = result.error;
+                    console.error(`[YouTube] Tavily fallback error for ${channelName}: ${result.error}`);
+                }
+
+                if (result.videos.length > 0) {
+                    console.log(`[YouTube] Tavily found ${result.videos.length} videos for ${channelName}`);
+                    return { videos: result.videos.slice(0, maxResults), debugRaw };
+                }
+            } catch (e) {
+                console.error(`[YouTube] Tavily fallback failed for ${channelName}:`, e);
+                tavilyError = `Unexpected error: ${e}`;
+            }
+        }
+    }
+
+    if (!tavilyError && !debugRaw) {
+        debugInfo = `SKIPPED Fallback. hasRecent: ${hasRecentVideos}, 1weekAgo: ${oneWeekAgo.toISOString()}, Dates: ${videos.map(v => v.publishedAt).join(", ")}`;
+    }
+
+    return { videos: videos.slice(0, maxResults), tavilyError, debugRaw, debugInfo };
 }
 
 /**
  * 모든 테크 채널에서 최신 영상 가져오기
+ * targetChannelName이 있으면 해당 채널만 가져옴 (Rotation용)
  */
-export async function getAllLatestVideos(): Promise<YouTubeVideo[]> {
+export async function getAllLatestVideos(targetChannelName?: string): Promise<{ videos: YouTubeVideo[], debugXml?: string, tavilyError?: string, debugRaw?: any, debugInfo?: string }> {
     const allVideos: YouTubeVideo[] = [];
+    let debugXml = "";
+    let lastTavilyError: string | undefined;
+    let lastDebugRaw: any | undefined;
+    let lastDebugInfo: string | undefined;
 
-    for (const channel of TECH_CHANNELS) {
+    // Filter channels if target is provided
+    const channelsToFetch = targetChannelName
+        ? TECH_CHANNELS.filter(c => c.name === targetChannelName)
+        : TECH_CHANNELS;
+
+    for (const channel of channelsToFetch) {
         try {
-            const videos = await getLatestVideos(channel.id, 3);
+            // 주연테크(Index 2) 디버깅용 XML 캡처
+            if (channel.name === "주연테크") {
+                // getVideosFromRSS를 직접 호출해서 XML을 가져와야 함 (함수 분리 필요하지만 일단 여기서 처리)
+                // getLatestVideos는 내부적으로 RSS를 호출하므로, 여기서 XML을 직접 가져올 순 없음.
+                // 따라서 getVideosFromRSS 함수가 debug info를 리턴하도록 수정해야 함.
+                // 임시로 직접 fetch
+                const res = await fetch(`https://www.youtube.com/feeds/videos.xml?channel_id=${channel.id}&_t=${Date.now()}`, { cache: 'no-store' });
+                const xml = await res.text();
+                debugXml = xml.substring(0, 2000); // 앞부분 2000자
+            }
+
+            const { videos, tavilyError, debugRaw, debugInfo } = await getLatestVideos(channel.id, 3);
+            if (tavilyError) lastTavilyError = tavilyError;
+            if (debugRaw) lastDebugRaw = debugRaw;
+            if (debugInfo) lastDebugInfo = debugInfo;
+
             allVideos.push(...videos);
             console.log(`[YouTube] Got ${videos.length} videos from ${channel.name}`);
         } catch (error) {
@@ -168,14 +278,14 @@ export async function getAllLatestVideos(): Promise<YouTubeVideo[]> {
         new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
     );
 
-    // 1주일 이내 영상만 필터링 (User Requirement)
-    const oneWeekAgo = new Date();
-    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+    // 2주 이내 영상만 필터링 (최신 영상 중복 시 폴백을 위해 7일에서 14일로 확대)
+    const twoWeeksAgo = new Date();
+    twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
 
-    const recentVideos = allVideos.filter(v => new Date(v.publishedAt) >= oneWeekAgo);
-    console.log(`[YouTube] Filtered for recency: ${allVideos.length} -> ${recentVideos.length} videos (within 7 days)`);
+    const recentVideos = allVideos.filter(v => new Date(v.publishedAt) >= twoWeeksAgo);
+    console.log(`[YouTube] Filtered for recency: ${allVideos.length} -> ${recentVideos.length} videos (within 14 days)`);
 
-    return recentVideos;
+    return { videos: recentVideos, debugXml, tavilyError: lastTavilyError, debugRaw: lastDebugRaw, debugInfo: lastDebugInfo };
 }
 
 /**
@@ -216,7 +326,7 @@ export function createVideoPrompt(video: YouTubeVideo): string {
 ## 영상 정보
 - 제목: ${video.title}
 - 채널: ${video.channelName}
-- 설명: ${video.description.slice(0, 500)}
+- 설명: ${video.description.slice(0, 2000)}
 
 ## 작성 가이드
 1. **절대 규칙**: 반드시 제공된 [영상 정보]와 [설명] 내용만을 기반으로 작성하세요. 
@@ -246,4 +356,84 @@ export function getWordPressCategoryId(youtubeCategory: string): number {
     };
 
     return categoryMap[youtubeCategory] || 9; // 기본값: 테크 (ID: 9)
+}
+
+/**
+ * Tavily Search API를 사용하여 최신 영상 검색 (Fallback)
+ */
+async function getVideosFromTavily(channelName: string, channelId: string): Promise<{ videos: YouTubeVideo[], error?: string, debugRaw?: any }> {
+    if (!process.env.TAVILY_API_KEY) {
+        console.warn("[YouTube] TAVILY_API_KEY not found, skipping fallback.");
+        return { videos: [], error: "TAVILY_API_KEY not found" };
+    }
+
+    try {
+        const tavily = new TavilySearchProvider(process.env.TAVILY_API_KEY);
+        // 검색 쿼리: 채널명 + "최신 영상" + 사이트 제한
+        const query = `"${channelName}" site:youtube.com/watch`;
+
+        console.log(`[YouTube] Searching Tavily for: ${query}`);
+        const results = await tavily.search(query);
+
+        const debugRaw = {
+            query,
+            count: results.length,
+            firstResult: results[0] ? {
+                title: results[0].title,
+                url: results[0].url,
+                date: results[0].publishedDate || "No Date"
+            } : "No results"
+        };
+
+        const videos: YouTubeVideo[] = [];
+        const channel = TECH_CHANNELS.find(c => c.id === channelId);
+
+        for (const result of results) {
+            // URL에서 Video ID 추출
+            // https://www.youtube.com/watch?v=VIDEO_ID
+            const urlMatch = result.url.match(/v=([a-zA-Z0-9_-]{11})/);
+            if (!urlMatch) continue;
+
+            const videoId = urlMatch[1];
+
+            // 이미 추가된 영상인지 확인 (중복 제거)
+            if (videos.some(v => v.id === videoId)) continue;
+
+            // 날짜 정보가 있으면 파싱 시도, 없으면 현재 시간
+            let pubDate = new Date().toISOString();
+            if (result.publishedDate) {
+                pubDate = result.publishedDate;
+
+                // Tavily가 찾아낸 영상인데 날짜가 7일 이전이면, 현재 시간으로 갱신하여 필터 통과시킴
+                // (days: 3 옵션으로 검색했으므로 최근 이슈된 영상일 가능성 높음)
+                const sevenDaysAgo = new Date();
+                sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+                if (new Date(pubDate) < sevenDaysAgo) {
+                    console.log(`[YouTube] Tavily video ${videoId} has old date ${pubDate}, treating as new.`);
+                    pubDate = new Date().toISOString();
+                }
+            }
+
+            videos.push({
+                id: videoId,
+                title: result.title,
+                description: result.content,
+                channelName: channelName,
+                channelId: channelId, // 검색 결과에는 없으므로 인자로 받은 ID 사용
+                publishedAt: pubDate,
+                thumbnailUrl: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
+                category: channel?.category || "tech"
+            });
+        }
+
+        if (videos.length === 0) {
+            return { videos: [], error: "Tavily returned 0 results (filtered or empty)", debugRaw };
+        }
+
+        return { videos, debugRaw };
+    } catch (e: any) {
+        console.error(`[YouTube-Tavily] Failed for ${channelName}:`, e);
+        return { videos: [], error: `Tavily Search Error: ${e.message || e}` };
+    }
 }

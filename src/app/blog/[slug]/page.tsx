@@ -6,6 +6,9 @@ import { Button } from "@/components/ui/button";
 import { BookmarkButton } from "@/components/post/BookmarkButton";
 import { AISummaryWrapper } from "@/components/post/AISummaryWrapper";
 import { CoupangProducts } from "@/components/post/CoupangProducts";
+import { GoogleAdUnit } from "@/components/ads/GoogleAdUnit";
+import { SubscribeForm } from "@/components/subscribe/SubscribeForm";
+import { splitContentForAds } from "@/lib/ads";
 import type { Metadata } from "next";
 
 interface Props {
@@ -136,13 +139,18 @@ export default async function BlogPostPage({ params }: Props) {
             </header>
 
             {/* AI Summary */}
+            <div className="mb-8">
+                {/* [AdSense] Top Ad Unit */}
+                <GoogleAdUnit slotId="8044380932" className="mb-8" />
+            </div>
+
             <AISummaryWrapper
                 postId={post.id}
                 content={post.content.rendered}
                 savedSummary={post.meta?.ai_summary}
             />
 
-            {/* Content */}
+            {/* Content with In-Article Ad */}
             <div
                 className="prose prose-xl prose-slate dark:prose-invert max-w-none
           prose-headings:font-bold prose-headings:text-slate-900 prose-headings:tracking-tight
@@ -154,11 +162,42 @@ export default async function BlogPostPage({ params }: Props) {
           prose-pre:bg-slate-900 prose-pre:rounded-2xl
           [&>h2]:text-3xl [&>h2]:mt-12 [&>h2]:mb-6
           [&>h3]:text-2xl [&>h3]:mt-10 [&>h3]:mb-4"
-                dangerouslySetInnerHTML={{ __html: post.content.rendered }}
-            />
+            >
+                {(() => {
+                    const { firstHalf, secondHalf } = splitContentForAds(post.content.rendered);
+                    return (
+                        <>
+                            <div dangerouslySetInnerHTML={{ __html: firstHalf }} />
+                            {secondHalf && (
+                                <>
+                                    <div className="my-12">
+                                        <GoogleAdUnit
+                                            slotId="5212379301" // In-Article Ad Slot
+                                            layout="in-article"
+                                            format="fluid"
+                                            className="w-full"
+                                        />
+                                    </div>
+                                    <div dangerouslySetInnerHTML={{ __html: secondHalf }} />
+                                </>
+                            )}
+                        </>
+                    );
+                })()}
+            </div>
+
+            {/* Bottom Ad Unit */}
+            <div className="my-12">
+                <GoogleAdUnit slotId="5688836445" className="w-full" />
+            </div>
 
             {/* Coupang Products Recommendation */}
             <CoupangProducts />
+
+            {/* Subscribe Banner */}
+            <div className="my-12">
+                <SubscribeForm />
+            </div>
 
             {/* Footer */}
             <footer className="mt-16 pt-8 border-t border-slate-200">

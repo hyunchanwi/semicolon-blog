@@ -17,6 +17,7 @@ export const CATEGORY_IDS = {
     AI: 15,         // 인공지능, 머신러닝, LLM, ChatGPT
     SOFTWARE: 8,    // OS 업데이트, iOS, One UI, Windows
     APPS: 2,        // 앱 출시, 앱 리뷰
+    HOWTO: 26,      // 사용법, 가이드, 튜토리얼 (NEW)
     OTHER: 1,       // 그 외 모든 것
 };
 
@@ -48,6 +49,10 @@ const NON_TECH_KEYWORDS = [
 
 // 강력한 키워드 + 카테고리별 키워드 (대폭 확장)
 const STRONG_KEYWORDS: Record<number, string[]> = {
+    [CATEGORY_IDS.HOWTO]: [
+        '사용법', '사용방법', '가이드', 'tutorial', 'guide', '설치법', '설치방법', '매뉴얼', 'manual',
+        '꿀팁', '활용법', '활용방법', '작동법', '방법', '따라하기'
+    ],
     [CATEGORY_IDS.GADGET]: [
         '갤럭시 s', 'galaxy s', 's24', 's25', 's26', 's23',
         '아이폰', 'iphone', '맥북', 'macbook', '아이패드', 'ipad', 'mac pro', 'mac mini', 'imac',
@@ -108,6 +113,9 @@ const STRONG_KEYWORDS: Record<number, string[]> = {
 };
 
 const WEAK_KEYWORDS: Record<number, string[]> = {
+    [CATEGORY_IDS.HOWTO]: [
+        '방법', '가이드', '팁', '설명'
+    ],
     [CATEGORY_IDS.GADGET]: [
         '삼성', 'samsung', '애플', 'apple',
         '스마트폰', 'smartphone', '휴대폰',
@@ -150,6 +158,7 @@ export function classifyContent(title: string, content?: string): number {
 
     // 1단계: 강력 키워드 매칭
     const priorityOrder = [
+        CATEGORY_IDS.HOWTO, // 사용법이 최우선
         CATEGORY_IDS.AI,
         CATEGORY_IDS.GADGET,
         CATEGORY_IDS.SOFTWARE,

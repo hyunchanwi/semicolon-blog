@@ -1,5 +1,5 @@
 import { tavily } from "@tavily/core";
-import { SearchProvider, SearchResult } from "./interface";
+import { SearchProvider, SearchResult, SearchOptions } from "./interface";
 
 export class TavilySearchProvider implements SearchProvider {
     private client;
@@ -8,14 +8,14 @@ export class TavilySearchProvider implements SearchProvider {
         this.client = tavily({ apiKey });
     }
 
-    async search(query: string): Promise<SearchResult[]> {
+    async search(query: string, options?: SearchOptions): Promise<SearchResult[]> {
         try {
             const response = await this.client.search(query, {
                 search_depth: "advanced",
                 include_answer: true,
                 include_images: true,
-                max_results: 5,
-                days: 1, // Restrict to last 24 hours for freshness
+                max_results: options?.maxResults || 5,
+                days: options?.days || 3,
             });
 
             return response.results.map((result: any) => ({

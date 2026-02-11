@@ -233,18 +233,31 @@ export function filterTechTopics(topics: TrendingTopic[]): TrendingTopic[] {
             return false;
         }
 
-        // 2. IT 키워드가 있어야 함
-        return techKeywords.some(keyword => titleLower.includes(keyword.toLowerCase()));
+        // 2. IT 키워드가 '단어'로서 존재해야 함 (단순 포함 시 'apple'이 'unite-d a-rab' 등에 걸릴 수 있음)
+        // 영어 키워드는 앞뒤 공백이나 문장 부호를 고려
+        return techKeywords.some(keyword => {
+            const kw = keyword.toLowerCase();
+            // 한글 키워드는 단순히 포함 여부로 체크 (조사 등이 붙을 수 있으므로)
+            if (/[ㄱ-ㅎ|ㅏ-ㅣ|가-힣]/.test(kw)) {
+                return titleLower.includes(kw);
+            }
+            // 영어 키워드는 독립된 단어이거나 특정 기술 용어의 일부여야 함
+            const regex = new RegExp(`\\b${kw}\\b`, 'i');
+            return regex.test(titleLower);
+        });
     });
 }
 
 /**
  * 최적의 블로그 주제 선택 (IT 전용)
  */
-export async function selectBestTopic(
+/**
+ * 최적의 블로그 주제 후보군 선택 (IT 전용, 여러 개 반환)
+ */
+export async function getBestTopics(
     geo: string = 'KR',
     recentTopics: string[] = []
-): Promise<TrendingTopic | null> {
+): Promise<TrendingTopic[]> {
     try {
         // 1. Google Trends RSS에서 트렌드 가져오기
         let trends = await getTrendingFromRSS(geo);
@@ -258,8 +271,9 @@ export async function selectBestTopic(
         if (filtered.length === 0) {
             console.log('[Trends] No IT topics in trends, fetching from tech news...');
             const techNews = await getTechNewsFromRSS();
-            filtered = techNews;
-            console.log(`[Trends] Got ${filtered.length} topics from tech news`);
+            // 테크 뉴스도 필터링을 거치는 게 안전함 (베트남 날씨 등 비-IT 뉴스 제외)
+            filtered = filterTechTopics(techNews);
+            console.log(`[Trends] Got ${filtered.length} topics from tech news after filtering`);
         }
 
         // 4. 여전히 없으면 IT 고정 주제 풀에서 선택 (항상 IT 보장)
@@ -267,7 +281,7 @@ export async function selectBestTopic(
             console.log('[Trends] No IT topics from any source, using IT topic pool');
             const poolTopic = getRandomITTopic();
             console.log(`[Trends] ✅ Using curated IT topic: ${poolTopic.title}`);
-            return poolTopic;
+            return [poolTopic];
         }
 
         // 5. 최근 주제 제외 (영어/한글 제목 모두 고려)
@@ -280,7 +294,7 @@ export async function selectBestTopic(
             return [...new Set([...englishWords, ...techTerms])].map(w => w.toLowerCase());
         };
 
-        const notRecent = filtered.filter(topic => {
+        const availableTopics = filtered.filter(topic => {
             const topicKeyTerms = extractKeyTerms(topic.title);
 
             return !recentTopics.some(recent => {
@@ -293,11 +307,14 @@ export async function selectBestTopic(
                     return true;
                 }
 
-                // 방법 2: 핵심 키워드 3개 이상 일치 시 중복으로 판단
-                const matchingTerms = topicKeyTerms.filter(term =>
-                    recentKeyTerms.includes(term) || recentLower.includes(term)
-                );
-                if (matchingTerms.length >= 3) {
+                // 방법 2: 핵심 키워드 2개 이상 일치 시 중복으로 판단 (Strict Check)
+                const matchingTerms = topicKeyTerms.filter(term => {
+                    // 3글자 이상만 비교 (너무 짧은건 오탐 가능성)
+                    if (term.length < 3) return false;
+                    return recentKeyTerms.includes(term) || recentLower.includes(term);
+                });
+
+                if (matchingTerms.length >= 2) {
                     console.log(`[Trends] Duplicate detected: "${topic.title}" matches "${recent}" (terms: ${matchingTerms.join(', ')})`);
                     return true;
                 }
@@ -306,14 +323,16 @@ export async function selectBestTopic(
             });
         });
 
-        // 6. 첫 번째 적합한 주제 선택
-        const selected = notRecent[0] || filtered[0];
+        console.log(`[Trends] ${availableTopics.length} topics available after recency check`);
 
-        console.log(`[Trends] ✅ Selected IT topic: ${selected.title}`);
-        return selected;
+        // 6. 후보군 반환 (없으면 원본 필터링 결과 반환)
+        const candidates = availableTopics.length > 0 ? availableTopics : filtered;
+
+        console.log(`[Trends] ✅ Returning ${candidates.length} candidate topics`);
+        return candidates;
 
     } catch (error) {
         console.error('[Trends] Error selecting topic:', error);
-        return null;
+        return [];
     }
 }

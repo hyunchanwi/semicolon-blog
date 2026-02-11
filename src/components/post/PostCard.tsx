@@ -76,6 +76,7 @@ export const PostCard = ({ post }: PostCardProps) => {
                     <h3 className="text-lg font-bold text-slate-900 mb-2 line-clamp-2 group-hover:text-primary transition-colors">
                         {decodeHtmlEntities(stripHtml(post.title.rendered))}
                     </h3>
+                    {/* Fixed title decoding issue */}
                     <p className="text-slate-600 text-sm leading-relaxed line-clamp-2 mb-4">
                         {excerpt}
                     </p>

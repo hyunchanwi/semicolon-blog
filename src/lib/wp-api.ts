@@ -13,6 +13,7 @@ export interface WPPost {
     excerpt: { rendered: string };
     content: { rendered: string };
     date: string;
+    status: string; // 'publish', 'draft', 'private', 'pending'
     featured_media: number;
     categories: number[];
     tags: number[]; // Added tags
@@ -96,10 +97,7 @@ export async function getTags(): Promise<{ id: number; name: string }[]> {
 }
 
 export async function getCategoryBySlug(slug: string): Promise<WPCategory | null> {
-    // Manual Alias for 'Other' -> 'Uncategorized' (ID 1)
-    if (slug === 'other') {
-        slug = 'uncategorized';
-    }
+    // Manual Alias for 'Other' Removed, as the actual slug is 'other'
 
     // 1. Try exact match
     const res = await fetch(
@@ -162,5 +160,13 @@ export function decodeHtmlEntities(text: string): string {
         .replace(/&lt;/g, "<")
         .replace(/&gt;/g, ">")
         .replace(/&quot;/g, '"')
-        .replace(/&#39;/g, "'");
+        .replace(/&#39;/g, "'")
+        .replace(/&#8230;/g, "...")
+        .replace(/&#8216;/g, "'")
+        .replace(/&#8217;/g, "'")
+        .replace(/&#8220;/g, '"')
+        .replace(/&#8221;/g, '"')
+        .replace(/&#8211;/g, "–")
+        .replace(/&#8212;/g, "—")
+        .replace(/&nbsp;/g, " ");
 }

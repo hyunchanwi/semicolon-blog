@@ -26,6 +26,7 @@ export const Header = () => {
     // Grouped categories for dropdown
     const blogCategories = [
         { href: "/category/technology", label: "테크", icon: "💻" },
+        { href: "/category/how-to", label: "사용법", icon: "📝" },
         { href: "/category/ai", label: "AI", icon: "🤖" },
         { href: "/category/gadget", label: "가젯", icon: "📱" },
         { href: "/category/games", label: "게임", icon: "🎮" },
@@ -63,7 +64,7 @@ export const Header = () => {
                                     href="/blog"
                                     className="px-5 py-2.5 rounded-full text-slate-600 dark:text-slate-300 font-medium hover:text-slate-900 dark:hover:text-white hover:bg-white dark:hover:bg-slate-800 hover:shadow-lg hover:shadow-slate-200/50 dark:hover:shadow-slate-900/50 transition-all duration-300 transform hover:-translate-y-0.5 inline-flex items-center gap-1"
                                 >
-                                    블로그
+                                    블로그 <ChevronDown className="h-4 w-4 ml-0.5" />
                                 </Link>
                                 {/* Dropdown Menu */}
                                 <div className="absolute top-full left-0 pt-2 w-48 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 transform group-hover:translate-y-0 translate-y-2">

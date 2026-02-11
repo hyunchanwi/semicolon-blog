@@ -8,6 +8,8 @@ import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { SessionProvider } from "@/components/auth/SessionProvider";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { SubscribeToast } from "@/components/subscribe/SubscribeToast";
+import Script from "next/script";
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
@@ -125,11 +127,12 @@ export default function RootLayout({
         />
 
         <link rel="alternate" type="application/rss+xml" title="Semicolon; RSS Feed" href="/api/rss" />
-        <script
+        <Script
           async
           src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7603530695362433"
           crossOrigin="anonymous"
-        ></script>
+          strategy="lazyOnload"
+        />
       </head>
       <body className={`${geistMono.variable} antialiased`}>
         <ThemeProvider>
@@ -139,6 +142,7 @@ export default function RootLayout({
               {children}
             </main>
             <Footer />
+            <SubscribeToast />
             <Analytics />
             <GoogleAnalytics gaId="G-W3HPY5Z44D" />
           </SessionProvider>

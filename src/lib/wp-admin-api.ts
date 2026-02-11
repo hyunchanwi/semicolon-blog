@@ -110,6 +110,28 @@ export async function getPostById(id: number) {
     return res.json();
 }
 
+// 관리자용 글 목록 가져오기 (비공개, 예약 등 모든 상태 포함)
+export async function getAdminPosts(perPage: number = 50, categoryId: number | null = null) {
+    let url = `${WP_API_URL}/posts?per_page=${perPage}&status=any&_embed`;
+
+    if (categoryId) {
+        url += `&categories=${categoryId}`;
+    }
+
+    const res = await fetch(url, {
+        headers: {
+            "Authorization": `Basic ${WP_AUTH}`,
+        },
+        cache: 'no-store'
+    });
+
+    if (!res.ok) {
+        throw new Error("Failed to fetch admin posts");
+    }
+
+    return res.json();
+}
+
 // 카테고리 수정
 export async function updateCategory(id: number, data: any) {
     const res = await fetch(`${WP_API_URL}/categories/${id}`, {

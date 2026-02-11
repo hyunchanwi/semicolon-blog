@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SubscribeForm } from "@/components/subscribe/SubscribeForm";
 
 export const Footer = () => {
     return (
@@ -40,6 +41,11 @@ export const Footer = () => {
                                 </Link>
                             </li>
                             <li>
+                                <Link href="/category/how-to" className="text-slate-400 hover:text-white transition-colors">
+                                    사용법
+                                </Link>
+                            </li>
+                            <li>
                                 <Link href="/category/tech" className="text-slate-400 hover:text-white transition-colors">
                                     테크
                                 </Link>
@@ -47,12 +53,14 @@ export const Footer = () => {
                         </ul>
                     </div>
 
-                    {/* Contact */}
+                    {/* Newsletter Subscribe */}
                     <div>
-                        <h4 className="text-lg font-semibold mb-4 text-slate-300">문의</h4>
-                        <p className="text-slate-400">
-                            contactsemicolonblog@gmail.com
-                        </p>
+                        <SubscribeForm compact />
+                        <div className="mt-6">
+                            <p className="text-slate-500 text-sm">
+                                문의: contactsemicolonblog@gmail.com
+                            </p>
+                        </div>
                     </div>
                 </div>
 

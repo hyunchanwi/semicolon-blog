@@ -2,9 +2,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { TavilySearchProvider } from "@/lib/search/tavily";
 import { generateBlogPost } from "@/lib/gemini";
-import { selectBestTopic, TrendingTopic } from "@/lib/trends/google-trends";
+import { getBestTopics, TrendingTopic } from "@/lib/trends/google-trends";
 import { getFeaturedImage } from "@/lib/images/unsplash";
-import { uploadImageFromUrl, getOrCreateTag } from "@/lib/wp-server";
+import { uploadImageFromUrl, getOrCreateTag, checkAutomationDuplicate } from "@/lib/wp-server";
 import { classifyContent } from "@/lib/category-rules";
 
 // Types
@@ -48,6 +48,10 @@ export async function GET(request: NextRequest) {
     try {
         console.log("[Cron] 🚀 Starting Trend Hunter generation...");
 
+        // Add random jitter to prevent simultaneous execution race conditions
+        const jitter = Math.floor(Math.random() * 5000);
+        await new Promise(resolve => setTimeout(resolve, jitter));
+
         // 1. 최근 주제 가져오기 (중복 방지)
         const recentTopics = await getRecentTopics();
         console.log(`[Cron] Found ${recentTopics.length} recent posts`);
@@ -57,11 +61,43 @@ export async function GET(request: NextRequest) {
         let selectedTitle = "";
 
         try {
-            topic = await selectBestTopic('KR', recentTopics);
-            if (topic) {
-                selectedTitle = topic.title;
-                console.log(`[Cron] 📈 Selected trending topic: ${selectedTitle}`);
+            const candidates = await getBestTopics('KR', recentTopics);
+            console.log(`[Cron] 🔍 Checking ${candidates.length} candidates for IT category validity...`);
+
+            for (const t of candidates) {
+                // [Check 1] Non-IT Keyword Check (Skip if title contains weather, travel, etc.)
+                const nonItKeywords = ["날씨", "여행", "맛집", "패션", "연예"];
+                const isNonIt = nonItKeywords.some(kw => t.title.includes(kw));
+
+                if (isNonIt) {
+                    console.log(`[Cron] ⚠️ Skipping candidate "${t.title}" - Contains Non-IT Keyword`);
+                    continue;
+                }
+
+                // [Check 2] Category Prediction
+                const predicted = classifyContent(t.title, '');
+                if (predicted === 1) { // 1 = OTHER (Not IT)
+                    console.log(`[Cron] ⚠️ Skipping candidate "${t.title}" - Classified as OTHER`);
+                    continue;
+                }
+
+                // [Check 3] Global Duplicate Check (Automation Meta)
+                const { exists } = await checkAutomationDuplicate(`trend_${t.title}`, WP_AUTH);
+                if (exists) {
+                    console.log(`[Cron] ⚠️ Skipping candidate "${t.title}" - Already published (Meta Match)`);
+                    continue;
+                }
+
+                topic = t;
+                selectedTitle = t.title;
+                console.log(`[Cron] 📈 Selected valid topic: ${selectedTitle} (Category ID: ${predicted})`);
+                break;
             }
+
+            if (!selectedTitle && candidates.length > 0) {
+                console.log("[Cron] ⚠️ All candidates classified as OTHER. Checking fallback list...");
+            }
+
         } catch (trendError) {
             console.log("[Cron] Trend API failed, using fallback");
         }
@@ -84,14 +120,12 @@ export async function GET(request: NextRequest) {
         }
 
         // 3.5 생성 전 IT 검증 - '기타' 카테고리면 스킵
+        // 3.5 생성 전 IT 검증 (Moved logic inside loop for safer selection)
+        // Double check just in case fallback was used
         const predictedCategory = classifyContent(selectedTitle, '');
         if (predictedCategory === 1) { // CATEGORY_IDS.OTHER = 1
-            console.log(`[Cron] ⚠️ Topic "${selectedTitle}" classified as OTHER, skipping`);
-            return NextResponse.json({
-                skipped: true,
-                reason: 'non-IT topic',
-                topic: selectedTitle
-            });
+            console.log(`[Cron] ⚠️ Selected topic "${selectedTitle}" still classified as OTHER? Proceeding with caution.`);
+            // Ideally we shouldn't reach here if loop worked correctly, unless fallback was used.
         }
 
         // 4. Tavily로 최신 정보 검색
@@ -149,10 +183,10 @@ export async function GET(request: NextRequest) {
             // Upload Logic (Common for all sources)
             if (imageUrl && WP_AUTH) {
                 // Upload
-                const mediaId = await uploadImageFromUrl(imageUrl, koreanTitle, WP_AUTH);
-                if (mediaId) {
-                    featuredMediaId = mediaId;
-                    console.log(`[Cron] 🖼️ Featured Image Set: ID ${mediaId}`);
+                const uploaded = await uploadImageFromUrl(imageUrl, koreanTitle, WP_AUTH);
+                if (uploaded) {
+                    featuredMediaId = uploaded.id;
+                    console.log(`[Cron] 🖼️ Featured Image Set: ID ${uploaded.id}`);
                 }
             }
 
@@ -199,6 +233,13 @@ export async function GET(request: NextRequest) {
         const categoryId = classifyContent(koreanTitle, finalHtmlContent);
         console.log(`[Cron] 🧠 Classified as Category ID: ${categoryId}`);
 
+        // 7.5 [Race Condition Check] Final check right before publishing
+        const { exists: finalExists } = await checkAutomationDuplicate(`trend_${selectedTitle}`, WP_AUTH);
+        if (finalExists) {
+            console.log(`[Cron] 🛑 Duplicate detected in final check for "${selectedTitle}". Skipping.`);
+            return NextResponse.json({ success: true, message: "Duplicate detected in final check" });
+        }
+
         // 8. WordPress에 발행
         if (!WP_AUTH) throw new Error("WP_AUTH not set");
 
@@ -213,13 +254,14 @@ export async function GET(request: NextRequest) {
             },
             body: JSON.stringify({
                 title: koreanTitle,
-                content: finalContent,
+                content: finalContent + `\n<!-- automation_source_id: trend_${selectedTitle} -->`,
                 status: "publish",
                 categories: [categoryId],
                 featured_media: featuredMediaId > 0 ? featuredMediaId : undefined,
                 tags: (await getOrCreateTag("Trend", WP_AUTH)) ? [(await getOrCreateTag("Trend", WP_AUTH))!] : [],
-                // Rank Math SEO meta fields
+                // Rank Math SEO meta fields + Global Automation ID
                 meta: {
+                    automation_source_id: `trend_${selectedTitle}`,
                     rank_math_title: seoTitle,
                     rank_math_description: metaDescription,
                     rank_math_focus_keyword: focusKeyphrase,

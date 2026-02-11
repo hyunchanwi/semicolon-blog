@@ -6,6 +6,12 @@ export interface SearchResult {
     images?: string[];
 }
 
+
+export interface SearchOptions {
+    days?: number;
+    maxResults?: number;
+}
+
 export interface SearchProvider {
-    search(query: string): Promise<SearchResult[]>;
+    search(query: string, options?: SearchOptions): Promise<SearchResult[]>;
 }

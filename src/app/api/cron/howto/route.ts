@@ -7,6 +7,9 @@ import { uploadImageFromUrl, getOrCreateTag, checkAutomationDuplicate } from "@/
 import { getBestTopics, TrendingTopic } from "@/lib/trends/google-trends";
 import { classifyContent } from "@/lib/category-rules";
 import { googlePublishUrl } from "@/lib/google-indexing";
+import { getVerifiedSubscribers } from "@/lib/subscribers";
+import { sendNewPostNotification } from "@/lib/email";
+import { stripHtml } from "@/lib/wp-api";
 
 // Configuration
 export const maxDuration = 60;
@@ -290,6 +293,23 @@ export async function GET(request: NextRequest) {
         // Google Indexing API 알림
         googlePublishUrl(post.link).catch(err => {
             console.error("[HowTo] Google Indexing failed:", err);
+        });
+
+        // 구독자 알림 발송 (비동기)
+        getVerifiedSubscribers().then(async (subscribers) => {
+            if (subscribers.length > 0) {
+                const excerptText = stripHtml(finalContent).slice(0, 200) + "...";
+                const slug = post.link.split("/").pop() || "";
+                const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://semicolon-blog.vercel.app";
+                await sendNewPostNotification(subscribers, {
+                    title: generated.title,
+                    excerpt: excerptText,
+                    url: `${siteUrl}/blog/${slug}`,
+                });
+                console.log(`[HowTo] 📧 Sent notification to ${subscribers.length} subscribers`);
+            }
+        }).catch(err => {
+            console.error("[HowTo] Subscriber notification failed:", err);
         });
 
         return NextResponse.json({
