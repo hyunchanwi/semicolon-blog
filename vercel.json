@@ -2,15 +2,15 @@
     "crons": [
         {
             "path": "/api/cron/generate",
-            "schedule": "0 6 * * *"
+            "schedule": "0 6,18 * * *"
         },
         {
             "path": "/api/cron/youtube",
-            "schedule": "0 9 * * *"
+            "schedule": "0 9,21 * * *"
         },
         {
             "path": "/api/cron/howto?v=am",
-            "schedule": "0 12 * * *"
+            "schedule": "0 12,0 * * *"
         }
     ]
 }

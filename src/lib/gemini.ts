@@ -12,7 +12,7 @@ export interface BlogPostResult {
 
 export async function generateBlogPost(topic: string, searchResults: SearchResult[]): Promise<BlogPostResult> {
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
-    const model = genAI.getGenerativeModel({ model: "gemini-flash-lite-latest" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-lite" });
 
     const context = searchResults.map((r, i) =>
         `Source ${i + 1} (${r.title}):\n${r.content}\nURL: ${r.url}`
@@ -25,7 +25,8 @@ export async function generateBlogPost(topic: string, searchResults: SearchResul
     
     Requirements:
     1. Language: KOREAN (한국어) - 모든 내용을 한국어로 작성
-    2. Recency: 반드시 **2026년**의 최신 트렌드를 반영하세요. 제목이나 본문에 과거 연도(2023, 2024 등)가 포함되지 않도록 주의하고, 필요한 경우 "2026년 최신 소식", "2026년 업데이트" 등의 표현을 사용하세요.
+    2. Length: **공백 제외 3500자 이상** (매우 중요). 내용을 아주 상세하고 전문적으로 작성할 것.
+    3. Recency: 반드시 **2026년**의 최신 트렌드를 반영하세요. 제목이나 본문에 과거 연도(2023, 2024 등)가 포함되지 않도록 주의하고, 필요한 경우 "2026년 최신 소식", "2026년 업데이트" 등의 표현을 사용하세요.
     3. Title: 첫 줄에 한국어 제목을 <h2> 태그로 작성 (매력적이고 SEO 친화적으로)
     4. Tone: Professional yet accessible (Apple Korea style), engaging, insightful.
     5. Structure:

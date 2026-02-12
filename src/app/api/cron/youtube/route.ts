@@ -33,14 +33,14 @@ const WP_AUTH = (process.env.WP_AUTH || "").trim();
 // Gemini로 블로그 글 생성
 async function generateFromVideo(video: YouTubeVideo): Promise<{ title: string; content: string }> {
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
-    const model = genAI.getGenerativeModel({ model: "gemini-flash-lite-latest" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-lite" });
 
     // video.id는 footer embed용으로만 사용하고, 프롬프트에는 포함하지 않음 (상단 오염 방지)
     const prompt = `현재 연도는 **2026년**입니다. 당신은 전문 IT 분석가로서 아래 정보를 바탕으로 최신 트렌드를 반영한 깊이 있는 블로그 포스팅을 작성해야 합니다.
 ${createVideoPrompt(video)}
 
 ## 작성 원칙 (매우 중요)
-1. **분량**: 반드시 **공백 제외 3000자 이상** 작성하세요. 주제에 대해 아주 상세하고 심도 있게 다루어야 합니다. (매우 중요)
+1. **분량**: 반드시 **공백 제외 3500자 이상** 작성하세요. 주제에 대해 아주 상세하고 심도 있게 다루어야 합니다. (매우 중요)
 2. **최신성**: 반드시 **2026년의 시점**에서 작성하세요. 과거 연도(2023, 2024 등)가 언급되지 않도록 주의하고, 필요한 경우 "2026년 최신 리뷰", "2026년 현재 시장 상황" 등의 표현을 사용하세요.
 3. **어조**: 전문 IT 칼럼니스트 또는 기술 분석가의 어조로 작성하세요. "~합니다", "~이다" 체를 혼용하되 전문성을 유지하세요.
 4. **독자**: IT에 관심이 많은 일반인부터 전문가까지 아우를 수 있는 수준으로 작성하세요.

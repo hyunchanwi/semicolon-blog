@@ -109,7 +109,7 @@ async function getHowToTopic(recentTopics: string[], forceTopic?: string): Promi
 // 2. Generate Content (Gemini)
 async function generateHowToContent(topic: any): Promise<{ title: string; content: string }> {
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
-    const model = genAI.getGenerativeModel({ model: "gemini-flash-lite-latest" }); // Only working free-tier model
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-lite" });
 
     const prompt = `
 당신은 'IT 강사'입니다. 현재 연도는 **2026년**입니다. 아래 주제에 대해 초보자용 **최신 사용법 가이드** 포스팅을 작성해주세요.
@@ -119,7 +119,7 @@ async function generateHowToContent(topic: any): Promise<{ title: string; conten
 - 참고 내용: ${topic.content}
 
 ## 작성 원칙
-1. **분량**: **공백 제외 1500자 이상** (상세하되 핵심 위주).
+1. **분량**: **공백 제외 3500자 이상** (매우 상세하고 깊이 있게).
 2. **최신성**: 반드시 **2026년의 최신 기술 트렌드**를 반영해야 하며, 제목이나 내용에 과거 연도(2023, 2024 등)가 포함되지 않도록 주의하세요. 가능하다면 **2026년 업데이트**, **2026년 최신판** 등의 문구를 사용하세요.
 3. **구조**: 제목, 서론, 단계별 절차, 표(비교), 결론.
 4. **이미지**: 설명 중간에 **[IMAGE: (영어 검색어)]**를 딱 **2개**만 삽입하세요.
