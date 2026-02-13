@@ -60,20 +60,23 @@ export interface PaginatedPosts {
 // PICKS (Products) Category ID to exclude from main blog feed
 const PRODUCTS_CATEGORY_ID = 32;
 
-export async function getPosts(perPage: number = 10, revalidate: number = 60): Promise<WPPost[]> {
+export async function getPosts(perPage: number = 10, revalidate: number = 10): Promise<WPPost[]> {
     const res = await fetch(
         `${WP_API_URL}/posts?per_page=${perPage}&categories_exclude=${PRODUCTS_CATEGORY_ID}&_embed`,
         { next: { revalidate } }
     );
     if (!res.ok) throw new Error("Failed to fetch posts");
-    return res.json();
+    const posts: WPPost[] = await res.json();
+    // Double check: Filter out any posts that might have slipped through (e.g. cache issues)
+    return posts.filter(post => !post.categories.includes(PRODUCTS_CATEGORY_ID));
 }
 
 export async function getPostsWithPagination(page: number = 1, perPage: number = 12): Promise<PaginatedPosts> {
     const res = await fetch(
         `${WP_API_URL}/posts?page=${page}&per_page=${perPage}&categories_exclude=${PRODUCTS_CATEGORY_ID}&_embed`,
-        { next: { revalidate: 60 } }
+        { next: { revalidate: 10 } } // Shorten cache for debugging
     );
+
 
     if (!res.ok) {
         // Handle 400 Bad Request (e.g. page out of range)
