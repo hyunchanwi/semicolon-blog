@@ -234,7 +234,14 @@ export async function GET(request: NextRequest) {
         }
 
         // 7. 카테고리 결정 (중앙 집중식 스마트 분류)
-        const categoryId = classifyContent(koreanTitle, finalHtmlContent);
+        let categoryId = classifyContent(koreanTitle, finalHtmlContent);
+
+        // [Fallback] Tech 블로그이므로 '기타(1)'로 분류되면 '테크(9)'로 변경
+        if (categoryId === 1) {
+            console.log(`[Cron] ⚠️ Category is OTHER(1), defaulting to TECH(9)`);
+            categoryId = 9;
+        }
+
         console.log(`[Cron] 🧠 Classified as Category ID: ${categoryId}`);
 
         // 7.5 [Race Condition Check] Final check right before publishing

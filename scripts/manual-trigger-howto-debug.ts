@@ -163,6 +163,7 @@ async function publishPost(title: string, content: string, tags: number[]) {
             content,
             status: 'publish', // or 'draft' if we want to be safe, but user said "not working"
             tags,
+            categories: [CATEGORY_ID_HOWTO], // Fix: Add category assignment
             meta: {
                 automation_source_id: `howto_debug_${Date.now()}`
             }
