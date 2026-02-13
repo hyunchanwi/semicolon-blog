@@ -216,7 +216,21 @@ async function publishPost(title: string, content: string, tags: number[], origi
     if (!WP_AUTH) throw new Error("No WP_AUTH");
 
     // Generate Featured Image
-    const featuredImg = await getFeaturedImage(title) || await getFeaturedImage("technology guide");
+    let featuredImg = await getFeaturedImage(title);
+
+    if (!featuredImg) {
+        // Fallback: Use reliable random tech images
+        const fallbacks = [
+            "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&q=80&w=1200",
+            "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&q=80&w=1200",
+            "https://images.unsplash.com/photo-1485827404703-89b55fcc595e?auto=format&fit=crop&q=80&w=1200",
+            "https://images.unsplash.com/photo-1531297461136-82lw8fca8b66?auto=format&fit=crop&q=80&w=1200"
+        ];
+        const randomUrl = fallbacks[Math.floor(Math.random() * fallbacks.length)];
+        featuredImg = { url: randomUrl, credit: "Unsplash (Fallback)" };
+        console.log(`[HowTo] Using fallback thumbnail: ${randomUrl}`);
+    }
+
     let mediaId = 0;
 
     if (featuredImg) {

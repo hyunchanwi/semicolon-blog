@@ -7,14 +7,28 @@ export function convertMarkdownToHtml(text: string): string {
     let html = text;
 
     // 1. Headers (### -> <h3>, ## -> <h2>, # -> <h1>)
-    // Handle leading whitespace and ensuring proper closing tags
-    // Iterating from h6 down to h1 to avoid partial matches if logic was different, but regex handles it.
-    html = html.replace(/^\s*######\s+(.*$)/gim, '<h6>$1</h6>');
-    html = html.replace(/^\s*#####\s+(.*$)/gim, '<h5>$1</h5>');
-    html = html.replace(/^\s*####\s+(.*$)/gim, '<h4>$1</h4>');
-    html = html.replace(/^\s*###\s+(.*$)/gim, '<h3>$1</h3>');
-    html = html.replace(/^\s*##\s+(.*$)/gim, '<h2>$1</h2>');
-    html = html.replace(/^\s*#\s+(.*$)/gim, '<h1>$1</h1>');
+    // Simplify: Match hash sequence at start of line (handling potential whitespace)
+    // We use a robust pattern that matches newline or start of string explicitly.
+    // Note: The replacement needs to ensure we don't eat valid text.
+
+    const headers = [
+        { regex: /(?:^|\r?\n)\s{0,3}#{6}\s+(.+?)(?:\s+#+)?(?=\r?\n|$)/g, tag: 'h6' },
+        { regex: /(?:^|\r?\n)\s{0,3}#{5}\s+(.+?)(?:\s+#+)?(?=\r?\n|$)/g, tag: 'h5' },
+        { regex: /(?:^|\r?\n)\s{0,3}#{4}\s+(.+?)(?:\s+#+)?(?=\r?\n|$)/g, tag: 'h4' },
+        { regex: /(?:^|\r?\n)\s{0,3}#{3}\s+(.+?)(?:\s+#+)?(?=\r?\n|$)/g, tag: 'h3' },
+        { regex: /(?:^|\r?\n)\s{0,3}#{2}\s+(.+?)(?:\s+#+)?(?=\r?\n|$)/g, tag: 'h2' },
+        { regex: /(?:^|\r?\n)\s{0,3}#{1}\s+(.+?)(?:\s+#+)?(?=\r?\n|$)/g, tag: 'h1' },
+    ];
+
+    for (const h of headers) {
+        // Use a function replacer to handle the leading newline correctly
+        html = html.replace(h.regex, (match, content, offset) => {
+            // If match started with newline, keep it? 
+            // Actually, usually we want to replace the whole line.
+            // But let's just output the tag.
+            return `\n<${h.tag}>${content}</${h.tag}>`;
+        });
+    }
 
     // 2. Bold (**text**)
     html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
@@ -39,8 +53,9 @@ export function convertMarkdownToHtml(text: string): string {
  * If it detects Markdown headers, it applies conversion.
  */
 export function ensureHtml(content: string): string {
-    // Check for Markdown headers
-    if (/^#{1,3} /m.test(content) || /\*\*.+\*\*/.test(content)) {
+    // Check for ANY Markdown headers (1-6 hashes)
+    // Use a simpler check: if line starts with # and space, or just #.
+    if (/(?:^|\n)\s*#{1,6}\s+/.test(content) || /\*\*.+\*\*/.test(content)) {
         console.log("[Auto-Fix] Markdown detected. Converting to HTML...");
         return convertMarkdownToHtml(content);
     }

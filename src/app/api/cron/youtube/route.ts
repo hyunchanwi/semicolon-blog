@@ -410,8 +410,16 @@ export async function GET(request: NextRequest) {
         } catch (e) { }
 
         if (!imageUrl) {
-            imageUrl = "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&q=80&w=1200";
-            imageCredit = "Unsplash";
+            // Fallback: Use a set of reliable tech/AI related images from Unsplash (direct URLs)
+            const fallbacks = [
+                "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&q=80&w=1200", // Tech chip
+                "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&q=80&w=1200", // Matrix code
+                "https://images.unsplash.com/photo-1485827404703-89b55fcc595e?auto=format&fit=crop&q=80&w=1200", // Robot
+                "https://images.unsplash.com/photo-1531297461136-82lw8fca8b66?auto=format&fit=crop&q=80&w=1200"  // Workspace
+            ];
+            imageUrl = fallbacks[Math.floor(Math.random() * fallbacks.length)];
+            imageCredit = "Unsplash (Fallback)";
+            console.log(`[YouTube] Using fallback image: ${imageUrl}`);
         }
 
         if (WP_AUTH && imageUrl) {
