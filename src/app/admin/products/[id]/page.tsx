@@ -1,8 +1,9 @@
+
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Save, ExternalLink, Sparkles } from "lucide-react";
+import { ArrowLeft, Save, ExternalLink, Sparkles, Trash2 } from "lucide-react";
 import Link from "next/link";
 
 const CATEGORIES = [
@@ -16,10 +17,11 @@ const CATEGORIES = [
     { value: "general", label: "기타" },
 ];
 
-export default function NewProductPage() {
+export default function EditProductPage({ params }: { params: { id: string } }) {
     const router = useRouter();
     const [loading, setLoading] = useState(false);
     const [fetchLoading, setFetchLoading] = useState(false);
+    const [initialLoading, setInitialLoading] = useState(true);
     const [form, setForm] = useState({
         name: "",
         price: "",
@@ -28,6 +30,36 @@ export default function NewProductPage() {
         category: "general",
         description: "",
     });
+
+    useEffect(() => {
+        const fetchProduct = async () => {
+            try {
+                const res = await fetch(`/api/admin/products/${params.id}`);
+                const data = await res.json();
+                if (data.success) {
+                    const product = data.product;
+                    setForm({
+                        name: product.name,
+                        price: product.price?.toString() || "",
+                        imageUrl: product.imageUrl || "",
+                        affiliateUrl: product.affiliateUrl || "",
+                        category: product.category || "general",
+                        description: product.description || "",
+                    });
+                } else {
+                    alert("상품 정보를 불러오지 못했습니다.");
+                    router.push("/admin/products");
+                }
+            } catch (error) {
+                console.error(error);
+                alert("오류가 발생했습니다.");
+            } finally {
+                setInitialLoading(false);
+            }
+        };
+
+        fetchProduct();
+    }, [params.id, router]);
 
     const fetchAiContent = async () => {
         if (!form.name.trim()) {
@@ -46,12 +78,13 @@ export default function NewProductPage() {
             const data = await res.json();
 
             if (data.success) {
-                setForm(prev => ({
-                    ...prev,
-                    name: data.data.title || prev.name,
-                    description: data.data.content || prev.description,
-                }));
-                alert("AI가 내용을 작성했습니다! 확인 후 수정해주세요.");
+                if (confirm("AI가 생성한 내용으로 현재 내용을 덮어쓰시겠습니까?")) {
+                    setForm(prev => ({
+                        ...prev,
+                        name: data.data.title || prev.name,
+                        description: data.data.content || prev.description,
+                    }));
+                }
             } else {
                 alert(data.error || "AI 생성에 실패했습니다.");
             }
@@ -79,8 +112,8 @@ export default function NewProductPage() {
         setLoading(true);
 
         try {
-            const res = await fetch("/api/admin/products", {
-                method: "POST",
+            const res = await fetch(`/api/admin/products/${params.id}`, {
+                method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     name: form.name.trim(),
@@ -95,10 +128,10 @@ export default function NewProductPage() {
             const data = await res.json();
 
             if (data.success) {
-                alert("상품이 등록되었습니다!");
+                alert("상품이 수정되었습니다!");
                 router.push("/admin/products");
             } else {
-                alert(data.error || "상품 등록에 실패했습니다.");
+                alert(data.error || "상품 수정에 실패했습니다.");
             }
         } catch (error) {
             alert("오류가 발생했습니다. 다시 시도해주세요.");
@@ -107,24 +140,63 @@ export default function NewProductPage() {
         }
     };
 
+    const handleDelete = async () => {
+        if (!confirm("정말 이 상품을 삭제하시겠습니까?")) return;
+
+        setLoading(true);
+        try {
+            const res = await fetch(`/api/admin/products/${params.id}`, {
+                method: "DELETE",
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                alert("상품이 삭제되었습니다.");
+                router.push("/admin/products");
+            } else {
+                alert(data.error || "삭제 실패");
+            }
+        } catch (error) {
+            alert("오류 발생");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    if (initialLoading) {
+        return <div className="p-8 text-center">Loading...</div>;
+    }
+
     return (
         <>
             {/* Header */}
-            <div className="flex items-center gap-4 mb-8">
-                <Link
-                    href="/admin/products"
-                    className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors"
-                >
-                    <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400" />
-                </Link>
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
-                        새 상품 등록
-                    </h1>
-                    <p className="text-slate-500 dark:text-slate-400 mt-1">
-                        쿠팡 파트너스 상품을 등록합니다
-                    </p>
+            <div className="flex items-center justify-between mb-8">
+                <div className="flex items-center gap-4">
+                    <Link
+                        href="/admin/products"
+                        className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                    >
+                        <ArrowLeft className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+                    </Link>
+                    <div>
+                        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
+                            상품 수정
+                        </h1>
+                        <p className="text-slate-500 dark:text-slate-400 mt-1">
+                            등록된 PICKS 상품을 수정합니다
+                        </p>
+                    </div>
                 </div>
+
+                <button
+                    type="button"
+                    onClick={handleDelete}
+                    disabled={loading}
+                    className="flex items-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                >
+                    <Trash2 className="h-4 w-4" />
+                    삭제
+                </button>
             </div>
 
             {/* Form */}
@@ -158,7 +230,7 @@ export default function NewProductPage() {
                             </button>
                         </div>
                         <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                            상품명을 입력하고 버튼을 누르면 제목과 설명을 AI가 작성해줍니다.
+                            상품명을 입력하고 버튼을 누르면 제목과 설명을 AI가 다시 작성해줍니다.
                         </p>
                     </div>
 
@@ -270,12 +342,12 @@ export default function NewProductPage() {
                         {loading ? (
                             <>
                                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                                등록 중...
+                                수정 중...
                             </>
                         ) : (
                             <>
                                 <Save className="h-4 w-4" />
-                                상품 등록
+                                수정 완료
                             </>
                         )}
                     </button>
@@ -287,19 +359,6 @@ export default function NewProductPage() {
                     </Link>
                 </div>
             </form>
-
-            {/* Tip */}
-            <div className="mt-8 max-w-2xl p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                <h4 className="font-medium text-blue-900 dark:text-blue-200 mb-2">
-                    💡 쿠팡 파트너스 링크 만드는 법
-                </h4>
-                <ol className="text-sm text-blue-800 dark:text-blue-300 space-y-1 list-decimal list-inside">
-                    <li>쿠팡 파트너스 사이트 접속</li>
-                    <li>상품 검색 → 원하는 상품 찾기</li>
-                    <li>"링크 생성" 버튼 클릭</li>
-                    <li>생성된 링크를 위 입력란에 붙여넣기</li>
-                </ol>
-            </div>
         </>
     );
 }

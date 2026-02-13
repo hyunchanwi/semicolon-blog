@@ -1,70 +1,91 @@
+
 import { NextRequest, NextResponse } from "next/server";
-import { getProduct, updateProduct, deleteProduct } from "@/lib/coupang";
+import { getServerSession } from "next-auth";
+import { isAdminEmail } from "@/lib/admin-auth";
+import { updateProduct, deleteProduct, getProduct } from "@/lib/coupang";
 
-interface RouteContext {
-    params: Promise<{ id: string }>;
-}
+export const dynamic = "force-dynamic";
 
-// GET: 단일 상품 조회
 export async function GET(
     request: NextRequest,
-    context: RouteContext
+    { params }: { params: { id: string } }
 ) {
     try {
-        const { id } = await context.params;
-        const product = await getProduct(parseInt(id));
+        const session = await getServerSession();
+        if (!session || !isAdminEmail(session.user?.email)) {
+            // For GET, maybe allowed? But let's secure it.
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
+        const id = parseInt(params.id);
+        const product = await getProduct(id);
 
         if (!product) {
-            return NextResponse.json(
-                { success: false, error: "상품을 찾을 수 없습니다" },
-                { status: 404 }
-            );
+            return NextResponse.json({ error: "Product not found" }, { status: 404 });
         }
 
         return NextResponse.json({ success: true, product });
     } catch (error) {
-        return NextResponse.json(
-            { success: false, error: "Server error" },
-            { status: 500 }
-        );
+        return NextResponse.json({ error: "Server error" }, { status: 500 });
     }
 }
 
-// PUT: 상품 수정
 export async function PUT(
     request: NextRequest,
-    context: RouteContext
+    { params }: { params: { id: string } }
 ) {
     try {
-        const { id } = await context.params;
+        const session = await getServerSession();
+        if (!session || !isAdminEmail(session.user?.email)) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
+        const id = parseInt(params.id);
         const body = await request.json();
 
-        const product = await updateProduct(parseInt(id), body);
+        // Validation
+        if (!body.name || !body.affiliateUrl) {
+            return NextResponse.json(
+                { success: false, error: "상품명과 쿠팡 링크는 필수입니다" },
+                { status: 400 }
+            );
+        }
 
-        if (!product) {
+        const updatedProduct = await updateProduct(id, {
+            name: body.name,
+            price: body.price || 0,
+            imageUrl: body.imageUrl || "",
+            affiliateUrl: body.affiliateUrl,
+            category: body.category || "general",
+            description: body.description || ""
+        });
+
+        if (!updatedProduct) {
             return NextResponse.json(
                 { success: false, error: "상품 수정에 실패했습니다" },
                 { status: 500 }
             );
         }
 
-        return NextResponse.json({ success: true, product });
+        return NextResponse.json({ success: true, product: updatedProduct });
     } catch (error) {
-        return NextResponse.json(
-            { success: false, error: "Server error" },
-            { status: 500 }
-        );
+        console.error("[API] Product PUT error:", error);
+        return NextResponse.json({ error: "Server error" }, { status: 500 });
     }
 }
 
-// DELETE: 상품 삭제
 export async function DELETE(
     request: NextRequest,
-    context: RouteContext
+    { params }: { params: { id: string } }
 ) {
     try {
-        const { id } = await context.params;
-        const success = await deleteProduct(parseInt(id));
+        const session = await getServerSession();
+        if (!session || !isAdminEmail(session.user?.email)) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
+        const id = parseInt(params.id);
+        const success = await deleteProduct(id);
 
         if (!success) {
             return NextResponse.json(
@@ -75,9 +96,7 @@ export async function DELETE(
 
         return NextResponse.json({ success: true });
     } catch (error) {
-        return NextResponse.json(
-            { success: false, error: "Server error" },
-            { status: 500 }
-        );
+        console.error("[API] Product DELETE error:", error);
+        return NextResponse.json({ error: "Server error" }, { status: 500 });
     }
 }
