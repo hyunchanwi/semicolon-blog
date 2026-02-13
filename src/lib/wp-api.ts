@@ -50,6 +50,13 @@ export interface WPPage {
 }
 
 // API Functions
+// Pagination Response Type
+export interface PaginatedPosts {
+    posts: WPPost[];
+    totalPages: number;
+    total: number;
+}
+
 export async function getPosts(perPage: number = 10, revalidate: number = 60): Promise<WPPost[]> {
     const res = await fetch(
         `${WP_API_URL}/posts?per_page=${perPage}&_embed`,
@@ -57,6 +64,27 @@ export async function getPosts(perPage: number = 10, revalidate: number = 60): P
     );
     if (!res.ok) throw new Error("Failed to fetch posts");
     return res.json();
+}
+
+export async function getPostsWithPagination(page: number = 1, perPage: number = 12): Promise<PaginatedPosts> {
+    const res = await fetch(
+        `${WP_API_URL}/posts?page=${page}&per_page=${perPage}&_embed`,
+        { next: { revalidate: 60 } }
+    );
+
+    if (!res.ok) {
+        // Handle 400 Bad Request (e.g. page out of range)
+        if (res.status === 400) {
+            return { posts: [], totalPages: 0, total: 0 };
+        }
+        throw new Error("Failed to fetch posts");
+    }
+
+    const totalPages = parseInt(res.headers.get("X-WP-TotalPages") || "1", 10);
+    const total = parseInt(res.headers.get("X-WP-Total") || "0", 10);
+    const posts = await res.json();
+
+    return { posts, totalPages, total };
 }
 
 export async function getPostBySlug(slug: string): Promise<WPPost | null> {

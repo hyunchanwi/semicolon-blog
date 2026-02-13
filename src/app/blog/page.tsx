@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { getPosts } from "@/lib/wp-api";
+import { getPostsWithPagination } from "@/lib/wp-api";
 import { PostCard } from "@/components/post/PostCard";
+import { Pagination } from "@/components/ui/Pagination";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -8,8 +9,15 @@ export const metadata: Metadata = {
     description: "Semicolon; 블로그의 모든 글을 확인하세요.",
 };
 
-export default async function BlogPage() {
-    const posts = await getPosts(100, 60);
+interface Props {
+    searchParams: Promise<{ page?: string }>;
+}
+
+// Next.js 15+ searchParams is a Promise
+export default async function BlogPage(props: Props) {
+    const searchParams = await props.searchParams;
+    const page = Number(searchParams?.page) || 1;
+    const { posts, totalPages } = await getPostsWithPagination(page, 12);
 
     return (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -28,6 +36,11 @@ export default async function BlogPage() {
                 {posts.map((post) => (
                     <PostCard key={post.id} post={post} />
                 ))}
+            </div>
+
+            {/* Pagination */}
+            <div className="mt-12">
+                <Pagination currentPage={page} totalPages={totalPages} basePath="/blog" />
             </div>
         </div>
     );
