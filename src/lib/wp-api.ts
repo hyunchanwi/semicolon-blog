@@ -198,3 +198,10 @@ export function decodeHtmlEntities(text: string): string {
         .replace(/&#8212;/g, "—")
         .replace(/&nbsp;/g, " ");
 }
+
+// 미디어 정보 가져오기
+export async function getMedia(id: number): Promise<{ source_url: string } | null> {
+    const res = await fetch(`${WP_API_URL}/media/${id}`, { next: { revalidate: 3600 } });
+    if (!res.ok) return null;
+    return res.json();
+}
