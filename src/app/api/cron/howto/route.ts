@@ -108,7 +108,7 @@ async function getHowToTopic(recentTopics: string[], forceTopic?: string): Promi
 }
 
 // 2. Generate Content (Gemini)
-async function generateHowToContent(topic: any): Promise<{ title: string; content: string }> {
+async function generateHowToContent(topic: any): Promise<{ title: string; content: string; slug: string }> {
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
     const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
 
@@ -126,11 +126,13 @@ async function generateHowToContent(topic: any): Promise<{ title: string; conten
 4. **이미지**: 설명 중간에 **[IMAGE: (영어 검색어)]**를 딱 **1개**만 삽입하세요.
 5. **어조**: 친절한 경어체.
 6. **형식**: Markdown 문법(###, **, - 등)을 절대 사용하지 마세요. 오직 HTML 태그(<h3>, <p>, <ul>, <li>, <strong>)만 사용하세요.
+7. **Slug**: 주제와 관련된 **영어 URL Slug**를 하나 생성하세요. (소문자, 하이픈, 2026 포함)
 
 ## 출력 형식 (JSON Only)
 {
   "title": "블로그 제목",
-  "content": "HTML 코드 (<body> 내부 내용만)"
+  "content": "HTML 코드 (<body> 내부 내용만)",
+  "slug": "english-slug-example-2026"
 }
 JSON 외에 어떤 텍스트도 포함하지 마세요.
 `;
@@ -212,7 +214,7 @@ async function processImages(content: string, wpAuth: string): Promise<string> {
 }
 
 // 4. Publish
-async function publishPost(title: string, content: string, tags: number[], originalTitle: string) {
+async function publishPost(title: string, content: string, tags: number[], originalTitle: string, slug?: string) {
     if (!WP_AUTH) throw new Error("No WP_AUTH");
 
     // Generate Featured Image
@@ -248,6 +250,7 @@ async function publishPost(title: string, content: string, tags: number[], origi
             title,
             content: content + `\n<!-- automation_source_id: howto_${originalTitle} -->`,
             status: 'publish',
+            slug: slug || undefined, // Add English slug
             categories: [CATEGORY_ID_HOWTO],
             tags: tags,
             featured_media: mediaId > 0 ? mediaId : undefined,
@@ -307,7 +310,7 @@ export async function GET(request: NextRequest) {
         const tagId = await getOrCreateTag("사용법", WP_AUTH);
         const tags = tagId ? [tagId] : [];
 
-        const post = await publishPost(generated.title, finalContent, tags, topic.title);
+        const post = await publishPost(generated.title, finalContent, tags, topic.title, generated.slug);
 
         console.log(`[HowTo] Published: ${post.link}`);
 
@@ -317,9 +320,12 @@ export async function GET(request: NextRequest) {
         const publicUrl = `${siteUrl}/blog/${postSlug}`;
 
         console.log(`[HowTo] 📡 Notifying Google Indexing for: ${publicUrl}`);
-        googlePublishUrl(publicUrl).catch(err => {
+        console.log(`[HowTo] 📡 Notifying Google Indexing for: ${publicUrl}`);
+        try {
+            await googlePublishUrl(publicUrl);
+        } catch (err) {
             console.error("[HowTo] Google Indexing failed:", err);
-        });
+        }
 
         // 구독자 알림 발송 (비동기)
         getVerifiedSubscribers().then(async (subscribers) => {

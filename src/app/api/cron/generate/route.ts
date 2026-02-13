@@ -150,8 +150,8 @@ export async function GET(request: NextRequest) {
         const blogResult = await generateBlogPost(selectedTitle, searchResults);
         const koreanTitle = blogResult.title;
         const htmlContent = blogResult.content;
-        const { seoTitle, metaDescription, focusKeyphrase } = blogResult;
-        console.log(`[Cron] ✅ Generated: "${koreanTitle}" | SEO: ${focusKeyphrase}`);
+        const { seoTitle, metaDescription, focusKeyphrase, slug } = blogResult;
+        console.log(`[Cron] ✅ Generated: "${koreanTitle}" | SEO: ${focusKeyphrase} | Slug: ${slug}`);
 
         // 6. 이미지 설정 (Tavily > Unsplash > Fallback)
         let featuredImageHtml = "";
@@ -264,6 +264,7 @@ export async function GET(request: NextRequest) {
                 title: koreanTitle,
                 content: finalContent + `\n<!-- automation_source_id: trend_${selectedTitle} -->`,
                 status: "publish",
+                slug: slug || undefined, // Add English slug
                 categories: [categoryId],
                 featured_media: featuredMediaId > 0 ? featuredMediaId : undefined,
                 tags: (await getOrCreateTag("Trend", WP_AUTH)) ? [(await getOrCreateTag("Trend", WP_AUTH))!] : [],

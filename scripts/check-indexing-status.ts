@@ -1,25 +1,16 @@
 
 import { google } from 'googleapis';
-import dotenv from 'dotenv';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import { config } from 'dotenv';
+config({ path: '.env.local' });
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Load env
-dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
-
-async function checkStatus(url: string) {
+async function checkIndexingStatus() {
     const clientEmail = process.env.GOOGLE_INDEXING_CLIENT_EMAIL;
     const privateKey = process.env.GOOGLE_INDEXING_PRIVATE_KEY?.replace(/\\n/g, '\n');
 
     if (!clientEmail || !privateKey) {
-        console.error("❌ Missing credentials");
+        console.error("❌ Missing Google Indexing credentials in .env.local");
         return;
     }
-    console.log(`Using Service Account: ${clientEmail}`);
-    console.log(`Scope: https://www.googleapis.com/auth/indexing`);
 
     const authClient = new google.auth.JWT({
         email: clientEmail,
@@ -29,22 +20,50 @@ async function checkStatus(url: string) {
 
     const indexing = google.indexing({ version: 'v3', auth: authClient });
 
+    // 최근 글 URL 예시 (실제 존재하는 글이어야 함)
+    // 여기서는 가장 최근 포스트를 API로 가져와서 그 URL을 테스트해봅니다.
+    const WP_API_URL = process.env.WP_API_URL || "https://royalblue-anteater-980825.hostingersite.com/wp-json/wp/v2";
+
     try {
-        console.log(`Checking status for: ${url}`);
-        const res = await indexing.urlNotifications.getMetadata({
-            url: url,
+        console.log("Fetching latest post to test...");
+        const res = await fetch(`${WP_API_URL}/posts?per_page=1&_embed`);
+        if (!res.ok) throw new Error("Failed to fetch posts");
+        const posts = await res.json();
+
+        if (posts.length === 0) {
+            console.log("No posts found to test.");
+            return;
+        }
+
+        const post = posts[0];
+        const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://semicolonittech.com";
+        // wp-api.ts 등에서 사용하는 슬러그 추출 로직과 동일하게
+        const postSlug = post.slug || post.link.split('/').filter((s: string) => s).pop();
+        const testUrl = `${siteUrl}/blog/${postSlug}`;
+
+        console.log(`Checking status for URL: ${testUrl}`);
+
+        const statusRes = await indexing.urlNotifications.getMetadata({
+            url: testUrl,
         });
 
-        console.log("✅ Status Response:");
-        console.log(JSON.stringify(res.data, null, 2));
+        console.log("\n✅ Indexing API Status Response:");
+        console.log(JSON.stringify(statusRes.data, null, 2));
 
-    } catch (e: any) {
-        console.error("❌ Error checking status:", e.response?.data || e.message);
+        if (statusRes.data.latestUpdate) {
+            console.log(`\nℹ️ Latest notification sent at: ${statusRes.data.latestUpdate.notifyTime}`);
+            console.log(`ℹ️ Type: ${statusRes.data.latestUpdate.type}`);
+        } else {
+            console.log("\n⚠️ No notification history found for this URL via Indexing API.");
+            console.log("This might mean the API call failed silently, or this specific URL hasn't been submitted yet.");
+        }
+
+    } catch (error: any) {
+        console.error("\n❌ Error checking status:", error.message);
+        if (error.response) {
+            console.error("Response data:", error.response.data);
+        }
     }
 }
 
-// Check a specific post URL that was re-indexed yesterday
-const testUrl = "https://semicolonittech.com/blog/%ea%b5%ac%ea%b8%80-ai-%eb%b8%8c%eb%9d%bc%ec%9a%b0%ec%a0%80-disco-%ec%99%84%eb%b2%bd-%ec%a0%95%eb%a6%ac-gentabs-%ea%b8%b0%eb%8a%a5%ea%b3%bc-%ec%82%ac%ec%9a%a9%eb%b2%95-%ec%b4%9d%ec%a0%95%eb%a6%ac";
-// (구글 AI 브라우저 Disco... 글)
-
-checkStatus(testUrl);
+checkIndexingStatus();

@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
             const publicUrl = `${siteUrl}/blog/${postSlug}`;
 
             console.log(`[Admin] 📡 Indexing: ${publicUrl}`);
-            googlePublishUrl(publicUrl).catch(e => console.error(e));
+            await googlePublishUrl(publicUrl).catch(e => console.error(e));
 
             // Send Email Notification
             // Need to fetch image URL if featured_media is set
