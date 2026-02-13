@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Save, ExternalLink } from "lucide-react";
+import { ArrowLeft, Save, ExternalLink, Sparkles } from "lucide-react";
 import Link from "next/link";
 
 const CATEGORIES = [
@@ -19,6 +19,7 @@ const CATEGORIES = [
 export default function NewProductPage() {
     const router = useRouter();
     const [loading, setLoading] = useState(false);
+    const [fetchLoading, setFetchLoading] = useState(false);
     const [form, setForm] = useState({
         name: "",
         price: "",
@@ -27,6 +28,39 @@ export default function NewProductPage() {
         category: "general",
         description: "",
     });
+
+    const fetchCoupangInfo = async () => {
+        if (!form.affiliateUrl) return;
+
+        setFetchLoading(true);
+        try {
+            const res = await fetch("/api/admin/products/fetch-coupang", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ url: form.affiliateUrl }),
+            });
+
+            const data = await res.json();
+
+            if (data.success) {
+                setForm(prev => ({
+                    ...prev,
+                    name: data.data.title || prev.name,
+                    price: data.data.price?.toString() || prev.price,
+                    imageUrl: data.data.imageUrl || prev.imageUrl,
+                    description: data.data.description || prev.description,
+                }));
+                alert("정보를 성공적으로 가져왔습니다! 내용을 확인하고 수정해주세요.");
+            } else {
+                alert(data.error || "정보를 가져오는데 실패했습니다.");
+            }
+        } catch (error) {
+            console.error(error);
+            alert("API 호출 중 오류가 발생했습니다.");
+        } finally {
+            setFetchLoading(false);
+        }
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -124,17 +158,33 @@ export default function NewProductPage() {
                     </div>
 
                     {/* 쿠팡 파트너스 링크 */}
+                    {/* 쿠팡 파트너스 링크 */}
                     <div>
                         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                             쿠팡 파트너스 링크 <span className="text-red-500">*</span>
                         </label>
-                        <input
-                            type="url"
-                            value={form.affiliateUrl}
-                            onChange={(e) => setForm({ ...form, affiliateUrl: e.target.value })}
-                            placeholder="https://link.coupang.com/..."
-                            className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-slate-700 dark:text-white"
-                        />
+                        <div className="flex gap-2">
+                            <input
+                                type="url"
+                                value={form.affiliateUrl}
+                                onChange={(e) => setForm({ ...form, affiliateUrl: e.target.value })}
+                                placeholder="https://link.coupang.com/..."
+                                className="flex-1 px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-slate-700 dark:text-white"
+                            />
+                            <button
+                                type="button"
+                                onClick={fetchCoupangInfo}
+                                disabled={fetchLoading || !form.affiliateUrl}
+                                className="px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 whitespace-nowrap"
+                            >
+                                {fetchLoading ? (
+                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                                ) : (
+                                    <Sparkles className="h-4 w-4" />
+                                )}
+                                정보 가져오기
+                            </button>
+                        </div>
                         <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
                             <a
                                 href="https://partners.coupang.com/"

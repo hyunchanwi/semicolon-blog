@@ -134,3 +134,47 @@ export async function generateBlogPost(topic: string, searchResults: SearchResul
         throw new Error(`Gemini Error: ${error instanceof Error ? error.message : "Unknown error"}`);
     }
 }
+
+// 상품 소개 멘트 및 제목 생성 (PICKS용)
+export async function generateProductContent(productName: string, price: number, description: string): Promise<{ title: string; content: string }> {
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+    const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
+
+    const prompt = `
+    당신은 IT 기기 및 가젯 전문 리뷰어입니다.
+    다음 제품에 대해 사용자가 구매하고 싶어지도록 매력적인 "3줄 요약 추천 멘트"와 "클릭을 유도하는 제목"을 작성해주세요.
+    
+    제품명: ${productName}
+    가격: ${price}원
+    기본 설명: ${description}
+
+    [조건]
+    1. 제목: 이모지 1개 포함, 30자 이내, 핵심 특징 강조. (예: 🚀 가성비 끝판왕! 갤럭시 S24 울트라)
+    2. 내용: 3개의 bullet point로 작성. 각 포인트는 50자 이내. 전문적인 용어와 친근한 말투 사용.
+    3. 결과는 오직 JSON 형식으로만 반환하세요. 마크다운이나 다른 설명 없이.
+
+    Format:
+    {
+        "title": "생성된 제목",
+        "content": "- 추천 이유 1\n- 추천 이유 2\n- 추천 이유 3"
+    }
+    `;
+
+    try {
+        const result = await model.generateContent(prompt);
+        const response = result.response;
+        let text = response.text();
+
+        // JSON 파싱 전처리 (Markdown code block 제거)
+        text = text.replace(/```json/g, "").replace(/```/g, "").trim();
+
+        return JSON.parse(text);
+    } catch (error) {
+        console.error("Gemini Product Content Generation Error:", error);
+        // 실패 시 기본값 반환
+        return {
+            title: `[추천] ${productName}`,
+            content: `- 가성비 좋은 제품\n- 뛰어난 성능\n- 사용자 만족도 높음`
+        };
+    }
+}
