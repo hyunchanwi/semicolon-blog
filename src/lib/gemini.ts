@@ -13,7 +13,7 @@ export interface BlogPostResult {
 
 export async function generateBlogPost(topic: string, searchResults: SearchResult[]): Promise<BlogPostResult> {
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-lite" });
+    const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
 
     const context = searchResults.map((r, i) =>
         `Source ${i + 1} (${r.title}):\n${r.content}\nURL: ${r.url}`

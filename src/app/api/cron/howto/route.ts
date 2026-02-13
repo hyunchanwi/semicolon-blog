@@ -110,7 +110,7 @@ async function getHowToTopic(recentTopics: string[], forceTopic?: string): Promi
 // 2. Generate Content (Gemini)
 async function generateHowToContent(topic: any): Promise<{ title: string; content: string }> {
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-lite" });
+    const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
 
     const prompt = `
 당신은 'IT 강사'입니다. 현재 연도는 **2026년**입니다. 아래 주제에 대해 초보자용 **최신 사용법 가이드** 포스팅을 작성해주세요.

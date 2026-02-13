@@ -34,7 +34,7 @@ const WP_AUTH = (process.env.WP_AUTH || "").trim();
 // Gemini로 블로그 글 생성
 async function generateFromVideo(video: YouTubeVideo): Promise<{ title: string; content: string }> {
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-lite" });
+    const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
 
     // video.id는 footer embed용으로만 사용하고, 프롬프트에는 포함하지 않음 (상단 오염 방지)
 
