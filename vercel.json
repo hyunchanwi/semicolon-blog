@@ -4,5 +4,10 @@
             "path": "/api/cron/generate",
             "schedule": "0 21 * * *"
         }
-    ]
+    ],
+    "functions": {
+        "src/app/api/cron/**/*": {
+            "maxDuration": 60
+        }
+    }
 }

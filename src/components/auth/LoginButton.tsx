@@ -34,7 +34,7 @@ export const LoginButton = () => {
 
     if (session) {
         return (
-            <DropdownMenu>
+            <DropdownMenu modal={false}>
                 <DropdownMenuTrigger asChild>
                     <Button
                         variant="ghost"

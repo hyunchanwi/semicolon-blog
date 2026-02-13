@@ -18,6 +18,9 @@ const CRON_SECRET = process.env.CRON_SECRET;
 const WP_API_URL = process.env.WP_API_URL || "https://royalblue-anteater-980825.hostingersite.com/wp-json/wp/v2";
 const WP_AUTH = (process.env.WP_AUTH || "").trim();
 
+export const maxDuration = 60; // Set timeout to 60s (Pro/Hobby limit)
+export const dynamic = 'force-dynamic';
+
 // 분류 규칙 재정의 (classifyContent 사용)
 
 // 최근 작성한 주제 가져오기
@@ -143,7 +146,7 @@ export async function GET(request: NextRequest) {
         console.log(`[Cron] Found ${searchResults.length} search results`);
 
         // 5. AI로 블로그 글 생성 (한글 제목 + SEO 메타데이터 포함)
-        // Optimized for speed: Changed to 2500 chars limit
+        // Optimized for speed: Changed to 2500 chars limit (managed in gemini.ts)
         const blogResult = await generateBlogPost(selectedTitle, searchResults);
         const koreanTitle = blogResult.title;
         const htmlContent = blogResult.content;
@@ -235,12 +238,6 @@ export async function GET(request: NextRequest) {
 
         // 7. 카테고리 결정 (중앙 집중식 스마트 분류)
         let categoryId = classifyContent(koreanTitle, finalHtmlContent);
-
-        // [Fallback] Tech 블로그이므로 '기타(1)'로 분류되면 '테크(9)'로 변경
-        if (categoryId === 1) {
-            console.log(`[Cron] ⚠️ Category is OTHER(1), defaulting to TECH(9)`);
-            categoryId = 9;
-        }
 
         console.log(`[Cron] 🧠 Classified as Category ID: ${categoryId}`);
 
