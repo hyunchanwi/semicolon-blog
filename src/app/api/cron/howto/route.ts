@@ -10,6 +10,7 @@ import { googlePublishUrl } from "@/lib/google-indexing";
 import { getVerifiedSubscribers } from "@/lib/subscribers";
 import { sendNewPostNotification } from "@/lib/email";
 import { stripHtml } from "@/lib/wp-api";
+import { ensureHtml } from "@/lib/markdown-to-html";
 
 // Configuration
 export const maxDuration = 60;
@@ -124,6 +125,7 @@ async function generateHowToContent(topic: any): Promise<{ title: string; conten
 3. **구조**: 제목, 서론, 단계별 절차, 표(비교), 결론.
 4. **이미지**: 설명 중간에 **[IMAGE: (영어 검색어)]**를 딱 **2개**만 삽입하세요.
 5. **어조**: 친절한 경어체.
+6. **형식**: Markdown 문법(###, **, - 등)을 절대 사용하지 마세요. 오직 HTML 태그(<h3>, <p>, <ul>, <li>, <strong>)만 사용하세요.
 
 ## 출력 형식 (JSON Only)
 {
@@ -145,7 +147,11 @@ JSON 외에 어떤 텍스트도 포함하지 마세요.
         text = text.substring(firstBrace, lastBrace + 1);
     }
 
-    return JSON.parse(text);
+    const parsed = JSON.parse(text);
+    // Ensure HTML if Markdown leaks
+    parsed.content = ensureHtml(parsed.content);
+
+    return parsed;
 }
 
 // 3. Process Images

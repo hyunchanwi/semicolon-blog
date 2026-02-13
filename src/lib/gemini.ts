@@ -1,5 +1,6 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { SearchResult } from "./search/interface";
+import { ensureHtml } from "@/lib/markdown-to-html";
 
 export interface BlogPostResult {
     title: string;
@@ -25,24 +26,25 @@ export async function generateBlogPost(topic: string, searchResults: SearchResul
     
     Requirements:
     1. Language: KOREAN (한국어) - 모든 내용을 한국어로 작성
-    2. Length: **공백 제외 3500자 이상** (매우 중요). 내용을 아주 상세하고 전문적으로 작성할 것.
+    2. Length: **공백 제외 2500자 내외**. 내용을 아주 상세하고 전문적으로 작성할 것. (Reduced from 3500 for optimization)
     3. Recency: 반드시 **2026년**의 최신 트렌드를 반영하세요. 제목이나 본문에 과거 연도(2023, 2024 등)가 포함되지 않도록 주의하고, 필요한 경우 "2026년 최신 소식", "2026년 업데이트" 등의 표현을 사용하세요.
-    3. Title: 첫 줄에 한국어 제목을 <h2> 태그로 작성 (매력적이고 SEO 친화적으로)
-    4. Tone: Professional yet accessible (Apple Korea style), engaging, insightful.
-    5. Structure:
+    4. Title: 첫 줄에 한국어 제목을 <h2> 태그로 작성 (매력적이고 SEO 친화적으로)
+    5. Tone: Professional yet accessible (Apple Korea style), engaging, insightful. NO Markdown formatting (###, **). Use HTML only.
+    6. Structure:
        - Introduction: Hook the reader, explain why this matters. 첫 100단어 내에 핵심 키워드 포함.
        - Body: Analyze the facts from sources. Use <h3> for subtitles (2-4개).
        - Conclusion: Summary and future outlook.
-    6. Content Enhancement:
+    7. Content Enhancement:
        - **Images/Videos**: If the sources contain image or video URLs, embed them using HTML <img> or <iframe/video> tags where relevant. 모든 이미지에 한국어 alt 텍스트 필수.
        - **Sources Section**: At the very end of the post, add a horizontal rule (<hr />) followed by a "참고 자료" section listing the source titles and URLs.
-    7. Formatting: Return ONLY the HTML content (starting with <article>). 
+    8. Formatting: Return ONLY the HTML content (starting with <article>). 
        - Start with <article> and include <h2> for the Korean title at the very beginning
        - Use <h3>, <p>, <ul>, <li>, <strong>, <blockquote>.
        - Do NOT use <h1> or <html> tags.
        - Embed the source URLs naturally as links (e.g., <a href="...">source</a>) where appropriate.
+       - **ABSOLUTELY NO MARKDOWN**: Do not use ### or **. Always use HTML tags.
     
-    8. **SEO METADATA (VERY IMPORTANT)**: 
+    9. **SEO METADATA (VERY IMPORTANT)**: 
        글 본문 콘텐츠 작성 후, 반드시 마지막에 다음 형식으로 SEO 메타데이터를 추가하세요:
        
        <!--SEO_META_START-->
@@ -62,6 +64,9 @@ export async function generateBlogPost(topic: string, searchResults: SearchResul
 
         // Simple cleanup if MD code blocks are returned
         text = text.replace(/```html/g, "").replace(/```/g, "").trim();
+
+        // Markdown to HTML fallback
+        text = ensureHtml(text);
 
         // HTML 엔티티 디코딩 함수
         const decodeHtmlEntities = (str: string): string => {

@@ -5,6 +5,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { TavilySearchProvider } from "../src/lib/search/tavily";
 import { getFeaturedImage } from "../src/lib/images/unsplash";
 import { uploadImageFromUrl, getOrCreateTag } from "../src/lib/wp-server";
+import { ensureHtml } from "../src/lib/markdown-to-html";
 
 // --- Copied Logic from route.ts (Simplified for CLI) ---
 
@@ -87,6 +88,7 @@ async function generateHowToContent(topic: any): Promise<{ title: string; conten
 JSON 외에 어떤 텍스트도 포함하지 마세요.
 `;
 
+    // ...
     const result = await model.generateContent(prompt);
     const response = await result.response;
     let text = response.text().trim();
@@ -95,7 +97,10 @@ JSON 외에 어떤 텍스트도 포함하지 마세요.
     if (firstBrace !== -1 && lastBrace !== -1) {
         text = text.substring(firstBrace, lastBrace + 1);
     }
-    return JSON.parse(text);
+
+    const parsed = JSON.parse(text);
+    parsed.content = ensureHtml(parsed.content);
+    return parsed;
 }
 
 async function processImages(content: string, wpAuth: string): Promise<string> {

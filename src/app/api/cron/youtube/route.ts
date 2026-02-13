@@ -16,6 +16,7 @@ import { classifyContent } from "@/lib/category-rules";
 import { getVerifiedSubscribers } from "@/lib/subscribers";
 import { sendNewPostNotification } from "@/lib/email";
 import { stripHtml } from "@/lib/wp-api";
+import { ensureHtml } from "@/lib/markdown-to-html";
 
 // Types
 interface WPCreatedPost {
@@ -36,6 +37,9 @@ async function generateFromVideo(video: YouTubeVideo): Promise<{ title: string; 
     const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-lite" });
 
     // video.id는 footer embed용으로만 사용하고, 프롬프트에는 포함하지 않음 (상단 오염 방지)
+
+    // ...
+
     const prompt = `현재 연도는 **2026년**입니다. 당신은 전문 IT 분석가로서 아래 정보를 바탕으로 최신 트렌드를 반영한 깊이 있는 블로그 포스팅을 작성해야 합니다.
 ${createVideoPrompt(video)}
 
@@ -44,6 +48,7 @@ ${createVideoPrompt(video)}
 2. **최신성**: 반드시 **2026년의 시점**에서 작성하세요. 과거 연도(2023, 2024 등)가 언급되지 않도록 주의하고, 필요한 경우 "2026년 최신 리뷰" 등의 표현을 사용하세요.
 3. **어조**: 전문 IT 칼럼니스트 또는 기술 분석가의 어조로 작성하세요. "~합니다", "~이다" 체를 혼용하되 전문성을 유지하세요.
 4. **독자**: IT에 관심이 많은 일반인부터 전문가까지 아우를 수 있는 수준으로 작성하세요.
+5. **형식**: Markdown 문법(###, **, - 등)을 절대 사용하지 마세요. **반드시 HTML 태그** (<h3>, <p>, <ul>, <li>, <strong>)만 사용해야 합니다.
 
 ## 본문 구성 지침
 - **제목**: SEO 최적화된 매력적이고 전문적인 한글 제목 (30자 이내).
@@ -60,6 +65,7 @@ ${createVideoPrompt(video)}
 - 유튜브, 유튜버 이름, 채널 언급 금지 (마치 직접 분석한 글처럼 작성).
 - 영상 주소나 임베드 코드 본문 내 삽입 금지.
 - "이 영상에서", "영상에 따르면" 등 출처를 밝히는 표현 자제.
+- Markdown 헤더(###) 사용 금지.
 
 ## 출력 형식 (JSON Only)
 {
@@ -78,6 +84,8 @@ JSON 외에 어떤 텍스트도 포함하지 마세요.`;
     try {
         const parsed = JSON.parse(text);
         let finalContent = parsed.content || '';
+        // Markdown cleansing
+        finalContent = ensureHtml(finalContent);
         let finalTitle = parsed.title || video.title;
 
         // 0. (중요) 상단 영상 링크/임베드 제거 (정규식)
