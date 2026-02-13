@@ -4,7 +4,7 @@ import { getProducts, createProduct } from "@/lib/coupang";
 // GET: 상품 목록 조회
 export async function GET() {
     try {
-        const products = await getProducts();
+        const products = await getProducts('any');
         return NextResponse.json({ success: true, products });
     } catch (error) {
         console.error("[API] Products GET error:", error);

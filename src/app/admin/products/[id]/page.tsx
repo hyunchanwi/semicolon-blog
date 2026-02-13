@@ -29,6 +29,7 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
         affiliateUrl: "",
         category: "general",
         description: "",
+        status: "publish",
     });
 
     useEffect(() => {
@@ -45,6 +46,7 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
                         affiliateUrl: product.affiliateUrl || "",
                         category: product.category || "general",
                         description: product.description || "",
+                        status: product.status || "publish",
                     });
                 } else {
                     alert("상품 정보를 불러오지 못했습니다.");
@@ -122,6 +124,7 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
                     affiliateUrl: form.affiliateUrl.trim(),
                     category: form.category,
                     description: form.description.trim(),
+                    status: form.status,
                 }),
             });
 
@@ -299,22 +302,38 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
                         )}
                     </div>
 
-                    {/* 카테고리 */}
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                            카테고리
-                        </label>
-                        <select
-                            value={form.category}
-                            onChange={(e) => setForm({ ...form, category: e.target.value })}
-                            className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-slate-700 dark:text-white"
-                        >
-                            {CATEGORIES.map((cat) => (
-                                <option key={cat.value} value={cat.value}>
-                                    {cat.label}
-                                </option>
-                            ))}
-                        </select>
+                    {/* 카테고리 & 상태 */}
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                                카테고리
+                            </label>
+                            <select
+                                value={form.category}
+                                onChange={(e) => setForm({ ...form, category: e.target.value })}
+                                className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-slate-700 dark:text-white"
+                            >
+                                {CATEGORIES.map((cat) => (
+                                    <option key={cat.value} value={cat.value}>
+                                        {cat.label}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                                상태
+                            </label>
+                            <select
+                                value={form.status}
+                                onChange={(e) => setForm({ ...form, status: e.target.value })}
+                                className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-slate-700 dark:text-white"
+                            >
+                                <option value="publish">공개 (전체 노출)</option>
+                                <option value="draft">임시 저장 (미노출)</option>
+                                <option value="private">비공개 (관리자만 노출)</option>
+                            </select>
+                        </div>
                     </div>
 
                     {/* 설명 */}

@@ -66,12 +66,13 @@ export async function ProductPicks() {
 
                             {/* Content */}
                             <div className="p-4">
-                                <h3 className="font-bold text-sm md:text-base text-slate-900 dark:text-white line-clamp-1">
+                                <h3 className="font-bold text-sm md:text-base text-slate-900 dark:text-white line-clamp-1 mb-2">
                                     {product.name}
                                 </h3>
-                                <p className="text-primary font-bold mt-1">
-                                    ₩{product.price.toLocaleString()}
-                                </p>
+                                <div className="flex items-center text-primary text-xs md:text-sm font-bold">
+                                    최저가 확인하기
+                                    <ArrowRight className="ml-1 h-3 w-3" />
+                                </div>
                             </div>
                         </a>
                     ))}

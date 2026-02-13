@@ -11,6 +11,7 @@ interface Product {
     imageUrl: string;
     affiliateUrl: string;
     category: string;
+    status: 'publish' | 'draft' | 'private';
 }
 
 export default function ProductsPage() {
@@ -113,7 +114,7 @@ export default function ProductsPage() {
                             className="bg-white dark:bg-slate-800 rounded-xl shadow-sm overflow-hidden hover:shadow-md transition-shadow"
                         >
                             {/* Product Image */}
-                            <div className="aspect-video bg-slate-100 dark:bg-slate-700 relative">
+                            <div className="aspect-video bg-slate-100 dark:bg-slate-700 relative group">
                                 {product.imageUrl ? (
                                     <img
                                         src={product.imageUrl}
@@ -125,16 +126,35 @@ export default function ProductsPage() {
                                         <Package className="h-12 w-12 text-slate-300" />
                                     </div>
                                 )}
-                                <span className="absolute top-2 right-2 px-2 py-1 bg-slate-900/70 text-white text-xs rounded">
-                                    {product.category}
-                                </span>
+                                <div className="absolute top-2 right-2 flex gap-1">
+                                    <span className="px-2 py-1 bg-slate-900/70 text-white text-xs rounded backdrop-blur-sm">
+                                        {product.category}
+                                    </span>
+                                    {product.status !== 'publish' && (
+                                        <span className="px-2 py-1 bg-red-500/90 text-white text-xs rounded backdrop-blur-sm">
+                                            {product.status === 'private' ? '비공개' : '임시'}
+                                        </span>
+                                    )}
+                                </div>
+
+                                {/* Edit Overlay */}
+                                <Link
+                                    href={`/admin/products/${product.id}`}
+                                    className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white font-medium gap-2"
+                                >
+                                    <span className="px-4 py-2 border border-white/50 rounded-full hover:bg-white/20 transition-colors">
+                                        수정하기
+                                    </span>
+                                </Link>
                             </div>
 
                             {/* Product Info */}
                             <div className="p-4">
-                                <h3 className="font-medium text-slate-900 dark:text-white mb-1 line-clamp-2">
-                                    {product.name}
-                                </h3>
+                                <Link href={`/admin/products/${product.id}`} className="block">
+                                    <h3 className="font-medium text-slate-900 dark:text-white mb-1 line-clamp-2 hover:text-primary transition-colors">
+                                        {product.name}
+                                    </h3>
+                                </Link>
                                 <p className="text-lg font-bold text-primary mb-4">
                                     ₩{formatPrice(product.price)}
                                 </p>
@@ -148,7 +168,7 @@ export default function ProductsPage() {
                                         className="flex-1 flex items-center justify-center gap-1 px-3 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors text-sm"
                                     >
                                         <ExternalLink className="h-4 w-4" />
-                                        쿠팡에서 보기
+                                        쿠팡
                                     </a>
                                     <button
                                         onClick={() => handleDelete(product.id)}
