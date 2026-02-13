@@ -80,7 +80,7 @@ async function generateHowToContent(topic: any): Promise<{ title: string; conten
 - URL: ${topic.url}
 
 ## 작성 원칙 (매우 중요)
-1. **분량**: 반드시 **공백 제외 3000자 이상** 작성하세요. (CLI 테스트용 축소)
+1. **분량**: **공백 제외 2500자 내외** (핵심 내용 위주로 알차게). (CLI 테스트용 축소)
 2. **구조**: 제목, 서론, 준비물, 단계별 절차, 결론
 3. **시각 자료**: [IMAGE: (영어 검색어)] 태그 사용
 4. **출력 형식 (JSON Only)**: { "title": "...", "content": "..." }
@@ -146,10 +146,32 @@ async function publishPost(title: string, content: string, tags: number[]) {
     if (!WP_AUTH) throw new Error("No WP_AUTH");
     console.log(`[HowTo] Publishing post: ${title}...`);
 
-    // Skip actual publish for CLI test unless requested
-    // const res = await fetch(...) 
-    console.log("Skipping actual WP Publish in CLI mode.");
-    return { id: 0, link: "http://test-link.com" };
+    // Actual Publish for Debugging
+    const res = await fetch(`${WP_API_URL}/posts`, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Basic ${WP_AUTH}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            title,
+            content,
+            status: 'publish', // or 'draft' if we want to be safe, but user said "not working"
+            tags,
+            meta: {
+                automation_source_id: `howto_debug_${Date.now()}`
+            }
+        })
+    });
+
+    if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(`WP Publish Failed: ${errText}`);
+    }
+
+    const json = await res.json();
+    console.log(`✅ Passed! Post Published: ID ${json.id}, Link: ${json.link}`);
+    return json;
 }
 
 async function main() {

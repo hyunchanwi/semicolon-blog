@@ -50,7 +50,8 @@ export async function GET(request: NextRequest) {
         console.log("[Cron] 🚀 Starting Trend Hunter generation...");
 
         // Add random jitter to prevent simultaneous execution race conditions
-        const jitter = Math.floor(Math.random() * 5000);
+        // Reduce jitter for faster execution
+        const jitter = Math.floor(Math.random() * 2000);
         await new Promise(resolve => setTimeout(resolve, jitter));
 
         // 1. 최근 주제 가져오기 (중복 방지)
@@ -125,12 +126,9 @@ export async function GET(request: NextRequest) {
         }
 
         // 3.5 생성 전 IT 검증 - '기타' 카테고리면 스킵
-        // 3.5 생성 전 IT 검증 (Moved logic inside loop for safer selection)
-        // Double check just in case fallback was used
         const predictedCategory = classifyContent(selectedTitle, '');
         if (predictedCategory === 1) { // CATEGORY_IDS.OTHER = 1
             console.log(`[Cron] ⚠️ Selected topic "${selectedTitle}" still classified as OTHER? Proceeding with caution.`);
-            // Ideally we shouldn't reach here if loop worked correctly, unless fallback was used.
         }
 
         // 4. Tavily로 최신 정보 검색
@@ -145,6 +143,7 @@ export async function GET(request: NextRequest) {
         console.log(`[Cron] Found ${searchResults.length} search results`);
 
         // 5. AI로 블로그 글 생성 (한글 제목 + SEO 메타데이터 포함)
+        // Optimized for speed: Changed to 2500 chars limit
         const blogResult = await generateBlogPost(selectedTitle, searchResults);
         const koreanTitle = blogResult.title;
         const htmlContent = blogResult.content;

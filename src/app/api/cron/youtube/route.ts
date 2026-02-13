@@ -40,8 +40,8 @@ async function generateFromVideo(video: YouTubeVideo): Promise<{ title: string; 
 ${createVideoPrompt(video)}
 
 ## 작성 원칙 (매우 중요)
-1. **분량**: 반드시 **공백 제외 3500자 이상** 작성하세요. 주제에 대해 아주 상세하고 심도 있게 다루어야 합니다. (매우 중요)
-2. **최신성**: 반드시 **2026년의 시점**에서 작성하세요. 과거 연도(2023, 2024 등)가 언급되지 않도록 주의하고, 필요한 경우 "2026년 최신 리뷰", "2026년 현재 시장 상황" 등의 표현을 사용하세요.
+1. **분량**: **공백 제외 2500자 내외** (핵심 내용 위주로 알차게).
+2. **최신성**: 반드시 **2026년의 시점**에서 작성하세요. 과거 연도(2023, 2024 등)가 언급되지 않도록 주의하고, 필요한 경우 "2026년 최신 리뷰" 등의 표현을 사용하세요.
 3. **어조**: 전문 IT 칼럼니스트 또는 기술 분석가의 어조로 작성하세요. "~합니다", "~이다" 체를 혼용하되 전문성을 유지하세요.
 4. **독자**: IT에 관심이 많은 일반인부터 전문가까지 아우를 수 있는 수준으로 작성하세요.
 
@@ -291,7 +291,8 @@ export async function GET(request: NextRequest) {
         console.log("[YouTube] 🎬 Starting YouTube-based post generation (Stateful Rotation)...");
 
         // Add random jitter to prevent simultaneous execution race conditions
-        const jitter = Math.floor(Math.random() * 5000);
+        // Reduce jitter for faster execution
+        const jitter = Math.floor(Math.random() * 2000);
         await new Promise(resolve => setTimeout(resolve, jitter));
 
         // 1. Determine Next Channel (Stateful Rotation)
