@@ -477,9 +477,12 @@ export async function GET(request: NextRequest) {
         const publicUrl = `${siteUrl}/blog/${postSlug}`;
 
         console.log(`[YouTube] 📡 Notifying Google Indexing for: ${publicUrl}`);
-        googlePublishUrl(publicUrl).catch(err => {
+        try {
+            await googlePublishUrl(publicUrl);
+            console.log("[YouTube] Google Indexing request sent.");
+        } catch (err) {
             console.error("[YouTube] Google Indexing failed:", err);
-        });
+        }
 
         // 구독자 알림 발송 (비동기)
         getVerifiedSubscribers().then(async (subscribers) => {

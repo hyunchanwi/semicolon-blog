@@ -291,9 +291,12 @@ export async function GET(request: NextRequest) {
         const publicUrl = `${siteUrl}/blog/${postSlug}`;
 
         console.log(`[Cron] 📡 Notifying Google Indexing for: ${publicUrl}`);
-        googlePublishUrl(publicUrl).catch(err => {
+        try {
+            await googlePublishUrl(publicUrl);
+            console.log("[Cron] Google Indexing request sent.");
+        } catch (err) {
             console.error("[Cron] Google Indexing failed:", err);
-        });
+        }
 
         return NextResponse.json({
             success: true,
