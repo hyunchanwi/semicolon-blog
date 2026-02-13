@@ -26,9 +26,3 @@ jobs:
           curl -X GET ${{ secrets.NEXT_PUBLIC_SITE_URL }}/api/cron/youtube \
           -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
           --fail || echo "YouTube API failed but continuing..."
-
-      - name: Trigger HowTo API
-        run: |
-          curl -X GET ${{ secrets.NEXT_PUBLIC_SITE_URL }}/api/cron/howto?v=am \
-          -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
-          --fail || echo "HowTo API failed but continuing..."
