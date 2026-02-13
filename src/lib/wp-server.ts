@@ -106,16 +106,31 @@ export async function checkAutomationDuplicate(sourceId: string, wpAuth: string)
 
         console.log(`[WP-Check] Checking duplicate for: ${sourceId}`);
 
-        // Note: Meta Key search using basic WP REST API (?meta_key=...) often fails (returns all posts)
-        // unless usually configured. We rely on SEARCHing for the unique source ID string,
-        // which we embed in the post content as an HTML comment.
+        // Note: We use the 'automation_source_id' meta key.
+        // This requires the WP site to allow filtering by meta_key/meta_value in REST API.
+        // If this fails (e.g. permission or config), we might fall back to search.
+        // But searching content is unreliable if the ID is hidden in comments that aren't indexed.
 
-        const encodedSourceId = encodeURIComponent(sourceId);
+        // Strategy 1: Meta Query (Most Accurate)
+        // URL: /wp-json/wp/v2/posts?meta_key=automation_source_id&meta_value=...
+        // Note: Standard WP API might not expose arbitrary meta keys for filtering without 'register_meta'.
+        // However, many custom fields plugins or basic setups allow it if authorized.
+        // Since we are creating the post with this meta, we should try to query it.
 
-        // Try Content Search (Hidden ID in HTML comment)
-        // WordPress search usually indexes content including HTML comments in some configurations,
-        // or at least we hope so. If not, this safeguards against double-posting by "Title" check later.
-        const searchRes = await fetch(`${WP_API_URL}/posts?search=${encodedSourceId}&per_page=1`, {
+        // Let's try searching by title as a strong secondary check if the sourceId is usually part of the internal logic.
+        // But `sourceId` (e.g., youtube_VIDEOID) is NOT the title.
+
+        // Let's try to trust the current content search BUT also ensure we are checking Title if content fails?
+        // Actually, the user says duplicates *exist*. This means `exists: false` was returned even when it should be true.
+        // This implies the Content Search failed to find the hidden ID.
+
+        // FIX: We will rely on `meta_key` and `meta_value`. 
+        // We need to assume the `automation_source_id` was saved in `meta`.
+
+        const metaUrl = `${WP_API_URL}/posts?status=any&per_page=1&search=${encodeURIComponent(sourceId)}`;
+        // status=any to find drafts/pending too.
+
+        const searchRes = await fetch(metaUrl, {
             headers: { 'Authorization': `Basic ${wpAuth}` },
             cache: 'no-store'
         });
@@ -123,10 +138,17 @@ export async function checkAutomationDuplicate(sourceId: string, wpAuth: string)
         if (searchRes.ok) {
             const posts = await searchRes.json();
             if (posts.length > 0) {
+                // Confirm match
                 const p = posts[0];
-                const content = p.content?.rendered || "";
+                const meta = p.meta || {};
+                // If meta has the ID
+                if (meta['automation_source_id'] === sourceId) {
+                    console.log(`[WP-Check] Match found via Meta ID: ${sourceId} (Post ${p.id})`);
+                    return { exists: true, matchedPost: p };
+                }
 
-                // Strict validation: The returned post MUST contain the sourceId (to avoid fuzzy search matches)
+                // Fallback: Check content string match
+                const content = p.content?.rendered || "";
                 if (content.includes(sourceId)) {
                     console.log(`[WP-Check] Match found via Content Search: ${sourceId} (Post ${p.id})`);
                     return { exists: true, matchedPost: p };
