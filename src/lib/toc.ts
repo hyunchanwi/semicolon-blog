@@ -13,18 +13,28 @@ export interface TocItem {
 /**
  * HTML 태그 내 텍스트를 추출하고 엔티티를 디코딩합니다.
  */
+/**
+ * HTML 태그 내 텍스트를 추출하고 엔티티를 디코딩합니다.
+ */
 function stripHtmlTags(html: string): string {
     // 1. 태그 제거
     let text = html.replace(/<[^>]*>/g, '');
 
-    // 2. 주요 HTML 엔티티 처리
+    // 2. 주요 HTML 엔티티 처리 (Expanded)
     text = text
         .replace(/&nbsp;/g, ' ')
         .replace(/&amp;/g, '&')
         .replace(/&lt;/g, '<')
         .replace(/&gt;/g, '>')
         .replace(/&quot;/g, '"')
-        .replace(/&#39;/g, "'");
+        .replace(/&#39;/g, "'")
+        .replace(/&#8211;/g, "–") // En Dash
+        .replace(/&#8212;/g, "—") // Em Dash
+        .replace(/&#8216;/g, "'") // Left Single Quote
+        .replace(/&#8217;/g, "'") // Right Single Quote
+        .replace(/&#8220;/g, '"') // Left Double Quote
+        .replace(/&#8221;/g, '"') // Right Double Quote
+        .replace(/&#8230;/g, "..."); // Ellipsis
 
     return text.trim();
 }

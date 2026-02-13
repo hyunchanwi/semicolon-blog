@@ -5,7 +5,8 @@ import { ArrowRight } from "lucide-react";
 import { PostCard } from "@/components/post/PostCard";
 
 export const LatestPosts = async () => {
-    const posts = await getPosts(6);
+    // 10초 ISR 캐시 적용 (메인 페이지 최신 글 빠른 반영)
+    const posts = await getPosts(6, 10);
 
     return (
         <section className="py-20 bg-slate-50/50">

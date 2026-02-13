@@ -261,7 +261,7 @@ export async function getAllLatestVideos(targetChannelName?: string): Promise<{ 
                 debugXml = xml.substring(0, 2000); // 앞부분 2000자
             }
 
-            const { videos, tavilyError, debugRaw, debugInfo } = await getLatestVideos(channel.id, 3);
+            const { videos, tavilyError, debugRaw, debugInfo } = await getLatestVideos(channel.id, 10);
             if (tavilyError) lastTavilyError = tavilyError;
             if (debugRaw) lastDebugRaw = debugRaw;
             if (debugInfo) lastDebugInfo = debugInfo;
@@ -280,7 +280,7 @@ export async function getAllLatestVideos(targetChannelName?: string): Promise<{ 
 
     // 2주 이내 영상만 필터링 (최신 영상 중복 시 폴백을 위해 7일에서 14일로 확대)
     const twoWeeksAgo = new Date();
-    twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+    twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 30);
 
     const recentVideos = allVideos.filter(v => new Date(v.publishedAt) >= twoWeeksAgo);
     console.log(`[YouTube] Filtered for recency: ${allVideos.length} -> ${recentVideos.length} videos (within 14 days)`);
