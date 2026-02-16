@@ -1,69 +1,81 @@
 
-import { google } from 'googleapis';
-import { config } from 'dotenv';
-config({ path: '.env.local' });
+import path from 'path';
+import fs from 'fs';
+
+// Load .env.local manually
+const envPath = path.join(process.cwd(), '.env.local');
+if (fs.existsSync(envPath)) {
+    const envConfig = fs.readFileSync(envPath, 'utf8');
+    envConfig.split('\n').forEach(line => {
+        const firstEqual = line.indexOf('=');
+        if (firstEqual === -1) return;
+        const key = line.substring(0, firstEqual).trim();
+        let value = line.substring(firstEqual + 1).trim();
+        if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+            value = value.slice(1, -1);
+        }
+        if (key && value) process.env[key] = value;
+    });
+}
+
+const WP_API_URL = process.env.WP_API_URL || "https://royalblue-anteater-980825.hostingersite.com/wp-json/wp/v2";
+const WP_AUTH = process.env.WP_AUTH;
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://semicolonittech.com';
 
 async function checkIndexingStatus() {
-    const clientEmail = process.env.GOOGLE_INDEXING_CLIENT_EMAIL;
-    const privateKey = process.env.GOOGLE_INDEXING_PRIVATE_KEY?.replace(/\\n/g, '\n');
-
-    if (!clientEmail || !privateKey) {
-        console.error("❌ Missing Google Indexing credentials in .env.local");
+    if (!WP_AUTH) {
+        console.error("❌ WP_AUTH not set");
         return;
     }
 
-    const authClient = new google.auth.JWT({
-        email: clientEmail,
-        key: privateKey,
-        scopes: ['https://www.googleapis.com/auth/indexing'],
+    console.log("🔍 Checking Indexing Status for recent 50 posts...\n");
+
+    // Fetch recent 50 posts with meta
+    const res = await fetch(`${WP_API_URL}/posts?per_page=50&status=publish&_fields=id,title,date,slug,link,meta`, {
+        headers: { 'Authorization': `Basic ${WP_AUTH}` }
     });
 
-    const indexing = google.indexing({ version: 'v3', auth: authClient });
+    if (!res.ok) {
+        console.error(`❌ Failed to fetch: ${res.status}`);
+        return;
+    }
 
-    // 최근 글 URL 예시 (실제 존재하는 글이어야 함)
-    // 여기서는 가장 최근 포스트를 API로 가져와서 그 URL을 테스트해봅니다.
-    const WP_API_URL = process.env.WP_API_URL || "https://royalblue-anteater-980825.hostingersite.com/wp-json/wp/v2";
+    const posts = await res.json();
+    let indexedCount = 0;
+    let missingCount = 0;
 
-    try {
-        console.log("Fetching latest post to test...");
-        const res = await fetch(`${WP_API_URL}/posts?per_page=1&_embed`);
-        if (!res.ok) throw new Error("Failed to fetch posts");
-        const posts = await res.json();
+    console.log("--------------------------------------------------------------------------------");
+    console.log(`| ID    | Date       | Indexed At           | Title`);
+    console.log("--------------------------------------------------------------------------------");
 
-        if (posts.length === 0) {
-            console.log("No posts found to test.");
-            return;
-        }
+    for (const post of posts) {
+        const meta = post.meta || {};
+        const indexedAt = meta.indexing_requested_at;
+        const date = post.date.split('T')[0];
+        const title = post.title.rendered.substring(0, 40) + (post.title.rendered.length > 40 ? '...' : '');
 
-        const post = posts[0];
-        const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://semicolonittech.com";
-        // wp-api.ts 등에서 사용하는 슬러그 추출 로직과 동일하게
-        const postSlug = post.slug || post.link.split('/').filter((s: string) => s).pop();
-        const testUrl = `${siteUrl}/blog/${postSlug}`;
+        const isIndexed = !!indexedAt;
+        const statusIcon = isIndexed ? "✅" : "⚠️";
+        const indexedDisplay = isIndexed ? new Date(indexedAt).toLocaleString('ko-KR') : "Not Requested";
 
-        console.log(`Checking status for URL: ${testUrl}`);
+        console.log(`| ${post.id} | ${date} | ${statusIcon} ${indexedDisplay.padEnd(20)} | ${title}`);
 
-        const statusRes = await indexing.urlNotifications.getMetadata({
-            url: testUrl,
-        });
-
-        console.log("\n✅ Indexing API Status Response:");
-        console.log(JSON.stringify(statusRes.data, null, 2));
-
-        if (statusRes.data.latestUpdate) {
-            console.log(`\nℹ️ Latest notification sent at: ${statusRes.data.latestUpdate.notifyTime}`);
-            console.log(`ℹ️ Type: ${statusRes.data.latestUpdate.type}`);
+        if (isIndexed) {
+            indexedCount++;
+            // process.stdout.write('.'); // Optional progress indicator
         } else {
-            console.log("\n⚠️ No notification history found for this URL via Indexing API.");
-            console.log("This might mean the API call failed silently, or this specific URL hasn't been submitted yet.");
-        }
-
-    } catch (error: any) {
-        console.error("\n❌ Error checking status:", error.message);
-        if (error.response) {
-            console.error("Response data:", error.response.data);
+            missingCount++;
+            console.log(`\n🔴 MISSING INDEX: ID ${post.id} - ${post.title.rendered}`);
+            console.log(`   Date: ${date}`);
         }
     }
+
+    console.log("--------------------------------------------------------------------------------");
+    console.log(`\n📊 Summary:`);
+    console.log(`   ✅ Requested: ${indexedCount}`);
+    console.log(`   ⚠️ Missing:   ${missingCount}`);
+    console.log("\n💡 Note: 'Requested' means the API call was sent to Google.");
+    console.log("   It may take 1-3 days for Google to actually show the page in search results.");
 }
 
 checkIndexingStatus();

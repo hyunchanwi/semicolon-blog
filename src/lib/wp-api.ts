@@ -63,7 +63,7 @@ const PRODUCTS_CATEGORY_ID = 32;
 export async function getPosts(perPage: number = 10, revalidate: number = 10): Promise<WPPost[]> {
     const res = await fetch(
         `${WP_API_URL}/posts?per_page=${perPage}&categories_exclude=${PRODUCTS_CATEGORY_ID}&_embed`,
-        { next: { revalidate } }
+        { next: { revalidate, tags: ["posts"] } }
     );
     if (!res.ok) throw new Error("Failed to fetch posts");
     const posts: WPPost[] = await res.json();
@@ -74,7 +74,7 @@ export async function getPosts(perPage: number = 10, revalidate: number = 10): P
 export async function getPostsWithPagination(page: number = 1, perPage: number = 12): Promise<PaginatedPosts> {
     const res = await fetch(
         `${WP_API_URL}/posts?page=${page}&per_page=${perPage}&categories_exclude=${PRODUCTS_CATEGORY_ID}&_embed`,
-        { next: { revalidate: 10 } } // Shorten cache for debugging
+        { next: { revalidate: 10, tags: ["posts"] } }
     );
 
 
@@ -96,7 +96,7 @@ export async function getPostsWithPagination(page: number = 1, perPage: number =
 export async function getPostBySlug(slug: string): Promise<WPPost | null> {
     const res = await fetch(
         `${WP_API_URL}/posts?slug=${slug}&_embed`,
-        { next: { revalidate: 60 } } // 1분 ISR 캐시 (성능 최적화)
+        { next: { revalidate: 60, tags: ["posts", `post-${slug}`] } } // 1분 ISR 캐시 (성능 최적화)
     );
     if (!res.ok) throw new Error("Failed to fetch post");
     const posts = await res.json();

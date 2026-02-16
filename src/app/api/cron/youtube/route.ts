@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 import { getFeaturedImage } from "@/lib/images/unsplash";
-import { uploadImageFromUrl, getOrCreateTag, checkAutomationDuplicate, checkPostExistsByTitle } from "@/lib/wp-server";
+import { uploadImageFromUrl, getOrCreateTag, getRecentAutomationPosts, isDuplicateIdeally, createPostWithIndexing } from "@/lib/wp-server";
 import { googlePublishUrl } from "@/lib/google-indexing";
 import {
     getAllLatestVideos,
@@ -36,7 +36,7 @@ const WP_API_URL = process.env.WP_API_URL || "https://royalblue-anteater-980825.
 const WP_AUTH = (process.env.WP_AUTH || "").trim();
 
 // Gemini로 블로그 글 생성
-async function generateFromVideo(video: YouTubeVideo): Promise<{ title: string; content: string }> {
+async function generateFromVideo(video: YouTubeVideo): Promise<{ title: string; content: string; slug?: string }> {
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
     const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
 
@@ -74,7 +74,7 @@ ${createVideoPrompt(video)}
 ## 출력 형식 (JSON Only)
 {
   "title": "블로그 제목",
-  "content": "HTML 코드 (<body> 내부 내용만. <h3>, <p>, <table>, <ul>, <li>, <strong>, [IMAGE: ...] 태그 사용)"
+  "content": "HTML 코드 (<body> 내부 내용만. <h3>, <p>, <ul>, <li>, <strong> 태그 사용. 이미지 태그 사용 금지)"
 }
 JSON 외에 어떤 텍스트도 포함하지 마세요.`;
 
@@ -177,7 +177,8 @@ JSON 외에 어떤 텍스트도 포함하지 마세요.`;
 
         return {
             title: finalTitle,
-            content: finalContent
+            content: finalContent,
+            slug: parsed.slug || ""
         };
     } catch (e) {
         console.error("[YouTube] Failed to parse Gemini response:", e);
@@ -193,43 +194,7 @@ JSON 외에 어떤 텍스트도 포함하지 마세요.`;
 }
 
 // WordPress에 글 발행
-async function publishPost(
-    title: string,
-    content: string,
-    categoryId: number,
-    featuredImageHtml: string = "",
-    featuredMediaId: number = 0,
-    tags: number[] = [],
-    meta: Record<string, any> = {}
-): Promise<WPCreatedPost> {
-    if (!WP_AUTH) {
-        throw new Error("WP_AUTH not configured");
-    }
-
-    const res = await fetch(`${WP_API_URL}/posts`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Basic ${WP_AUTH}`
-        },
-        body: JSON.stringify({
-            title,
-            content: content + (meta.automation_source_id ? `\n<!-- automation_source_id: ${meta.automation_source_id} -->` : ""),
-            status: 'publish',
-            categories: [categoryId],
-            tags: tags,
-            featured_media: featuredMediaId > 0 ? featuredMediaId : undefined,
-            meta: meta // 메타데이터 저장 (youtube_source_id 등)
-        })
-    });
-
-    if (!res.ok) {
-        const error = await res.text();
-        throw new Error(`Failed to publish: ${error}`);
-    }
-
-    return res.json();
-}
+// Local publishPost removed. Using createPostWithIndexing from lib/wp-server.ts
 
 /**
  * Finds the index of the channel used in the last published YouTube post.
@@ -328,6 +293,9 @@ export async function GET(request: NextRequest) {
         let selectedChannel = channels[initialChannelIndex];
         let checkedVideosLog: any[] = [];
 
+        // 0. Pre-fetch existing posts for batch duplicate checking
+        const existingPosts = await getRecentAutomationPosts(WP_AUTH);
+
         // Try ALL channels sequentially to ensure we find something to post
         for (let attempt = 0; attempt < channels.length; attempt++) {
             const channelIdx = (initialChannelIndex + attempt) % channels.length;
@@ -346,25 +314,25 @@ export async function GET(request: NextRequest) {
             const checkLimit = Math.min(targetVideos.length, 5);
             const candidateVideos = targetVideos.slice(0, checkLimit);
 
-            console.log(`[YouTube] 🔍 Checking top ${checkLimit} videos for duplicates...`);
+            console.log(`[YouTube] 🔍 Checking top ${checkLimit} videos for duplicates (Memory Check)...`);
 
             for (const v of candidateVideos) {
-                const { exists, matchedPost } = await checkAutomationDuplicate(`youtube_${v.id}`, WP_AUTH);
-                let titleExists = false;
-                if (!exists) titleExists = await checkPostExistsByTitle(v.title, WP_AUTH);
+                // New Batch & Memory Check
+                const { isDuplicate, reason } = isDuplicateIdeally(v.id, v.title, existingPosts);
 
-                const isDuplicate = exists || titleExists;
                 checkedVideosLog.push({
                     channel: selectedChannel.name,
                     id: v.id,
                     title: v.title,
                     isDuplicate,
-                    reason: exists ? `ID Match (${matchedPost?.id})` : (titleExists ? "Title Match" : "None")
+                    reason
                 });
 
                 if (!isDuplicate) {
                     targetVideo = v;
                     break;
+                } else {
+                    console.log(`[YouTube] 🚫 Duplicate skipped: "${v.title}" (${reason})`);
                 }
             }
 
@@ -385,104 +353,73 @@ export async function GET(request: NextRequest) {
         console.log(`[YouTube] ✅ Selected Video: "${targetVideo.title}" (${targetVideo.id})`);
 
         // 4. Generate Content
-        const { title, content } = await generateFromVideo(targetVideo);
+        const { title, content, slug } = await generateFromVideo(targetVideo);
 
-        // 4-1. Category
-        let categoryId = classifyContent(title, content);
-        // Manual override for hardware/PC
-        if (title.includes("미니PC") || title.includes("미니 컴퓨터") || title.includes("조립컴") || title.includes("노트북")) {
-            categoryId = 4; // Gadget
-        }
-        if (categoryId === 1) categoryId = 9; // Fallback from Other to Tech
-
-        // 4-2. Image
+        // 5. Image & Category Setup
+        let featuredImageHtml = "";
         let featuredMediaId = 0;
         let imageUrl = "";
-        let imageCredit = "";
 
-        try {
-            const imageData = await getFeaturedImage(title);
-            if (imageData) {
-                imageUrl = imageData.url;
-                imageCredit = imageData.credit;
-            }
-            if (!imageUrl) {
-                const searcher = new TavilySearchProvider(process.env.TAVILY_API_KEY || "");
-                const tRes = await searcher.search(`${title} image`);
-                if (tRes[0]?.images?.[0]) imageUrl = tRes[0].images[0];
-            }
-        } catch (e) { }
-
-        if (!imageUrl) {
-            // Fallback: Use a set of reliable tech/AI related images from Unsplash (direct URLs)
-            const fallbacks = [
-                "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&q=80&w=1200", // Tech chip
-                "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&q=80&w=1200", // Matrix code
-                "https://images.unsplash.com/photo-1485827404703-89b55fcc595e?auto=format&fit=crop&q=80&w=1200", // Robot
-                "https://images.unsplash.com/photo-1531297461136-82lw8fca8b66?auto=format&fit=crop&q=80&w=1200"  // Workspace
-            ];
-            imageUrl = fallbacks[Math.floor(Math.random() * fallbacks.length)];
-            imageCredit = "Unsplash (Fallback)";
-            console.log(`[YouTube] Using fallback image: ${imageUrl}`);
-        }
-
-        if (WP_AUTH && imageUrl) {
+        // Get Featured Image
+        const imageResult = await getFeaturedImage(title);
+        if (imageResult) {
+            imageUrl = imageResult.url;
             const uploaded = await uploadImageFromUrl(imageUrl, title, WP_AUTH);
-            if (uploaded) featuredMediaId = uploaded.id;
-        }
-
-        const featuredImageHtml = `
-            <figure class="wp-block-image size-large">
-                <img src="${imageUrl}" alt="${title}"/>
-                <figcaption>${imageCredit}</figcaption>
-            </figure>
-        `;
-
-        // 4-3. Publish
-        // Create Tags: YouTube, Channel Name
-        const youTubeTagId = await getOrCreateTag("YouTube", WP_AUTH);
-        const channelTagId = await getOrCreateTag(selectedChannel.name, WP_AUTH); // Save Channel Name as Tag!
-
-        const tagsToSave = [];
-        if (youTubeTagId) tagsToSave.push(youTubeTagId);
-        if (channelTagId) tagsToSave.push(channelTagId);
-
-        // [Race Condition Check] Final check right before publishing
-        const { exists: finalExists } = await checkAutomationDuplicate(`youtube_${targetVideo.id}`, WP_AUTH);
-        if (finalExists) {
-            console.log(`[YouTube] 🛑 Duplicate detected in final check for ${targetVideo.id}. Skipping.`);
-            return NextResponse.json({ success: true, message: "Duplicate detected in final check" });
-        }
-
-        const post = await publishPost(
-            title,
-            content,
-            categoryId,
-            featuredImageHtml,
-            featuredMediaId,
-            tagsToSave,
-            {
-                automation_source_id: `youtube_${targetVideo.id}`,
-                youtube_source_id: targetVideo.id,
-                youtube_channel: selectedChannel.name // Save for rotation logic
+            if (uploaded) {
+                featuredMediaId = uploaded.id;
             }
+
+            featuredImageHtml = `
+            <figure class="wp-block-image size-large">
+                <img src="${imageUrl}" alt="${title}" style="border-radius:12px; box-shadow:0 8px 30px rgba(0,0,0,0.12); width:100%; height:auto;" />
+                <figcaption style="text-align:center; font-size:14px; color:#888; margin-top:8px;">${imageResult.credit}</figcaption>
+            </figure>`;
+        }
+
+        // Add featured image to content
+        const finalContent = featuredImageHtml + content;
+
+        // Category
+        let categoryId = classifyContent(title, content);
+
+        // Tags
+        const tagsToSave: number[] = [];
+        const ytTag = await getOrCreateTag("YouTube", WP_AUTH);
+        if (ytTag) tagsToSave.push(ytTag);
+
+        const chTag = await getOrCreateTag(selectedChannel.name, WP_AUTH);
+        if (chTag) tagsToSave.push(chTag);
+
+        const post = await createPostWithIndexing(
+            {
+                title,
+                content: finalContent + `\n<!-- automation_source_id: youtube_${targetVideo.id} -->`,
+                status: 'publish',
+                categories: [categoryId],
+                tags: tagsToSave,
+                featured_media: featuredMediaId > 0 ? featuredMediaId : undefined,
+                slug: slug || undefined,
+                meta: {
+                    automation_source_id: `youtube_${targetVideo.id}`,
+                    youtube_source_id: targetVideo.id,
+                    youtube_channel: selectedChannel.name
+                }
+            },
+            WP_AUTH
         );
+
+        if (!post) throw new Error("Failed to create post");
 
         console.log(`[YouTube] 🚀 Published post ID: ${post.id}`);
 
-        // Google Indexing API 알림 (비동기로 실행하여 응답 지연 방지)
+        // Google Indexing API handled automatically in createPostWithIndexing
+        // We just calculate publicUrl for notification
+
         const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://semicolonittech.com";
         // WP API returns slug in response, ensure interface has it or access simply
-        const postSlug = (post as any).slug || post.link.split("/").filter(Boolean).pop();
+        const postAny = post as any;
+        const postSlug = postAny.slug || postAny.link.split("/").filter(Boolean).pop();
         const publicUrl = `${siteUrl}/blog/${postSlug}`;
-
-        console.log(`[YouTube] 📡 Notifying Google Indexing for: ${publicUrl}`);
-        try {
-            await googlePublishUrl(publicUrl);
-            console.log("[YouTube] Google Indexing request sent.");
-        } catch (err) {
-            console.error("[YouTube] Google Indexing failed:", err);
-        }
 
         // 구독자 알림 발송 (비동기)
         getVerifiedSubscribers().then(async (subscribers) => {
@@ -504,7 +441,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({
             success: true,
             id: post.id,
-            title: post.link,
+            title: postAny.link,
             rotation: {
                 previous: await getLastUsedChannelIndex(),
                 current: selectedChannel.name

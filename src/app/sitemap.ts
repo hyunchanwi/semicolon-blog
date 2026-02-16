@@ -18,7 +18,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }));
 
     // 2. Blog Posts
-    const posts = await getPosts(100); // Fetch recent 100 posts
+    const posts = await getPosts(1000); // Fetch recent 1000 posts (Increased for better indexing coverage)
     const postRoutes = posts.map((post) => ({
         url: `${baseUrl}/blog/${post.slug}`,
         lastModified: new Date(post.date),

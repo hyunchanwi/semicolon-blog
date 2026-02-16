@@ -1,5 +1,6 @@
-
 import { WPPost } from "./wp-api";
+import { googlePublishUrl } from "./google-indexing";
+import { revalidatePath, revalidateTag } from "next/cache";
 
 const WP_API_URL = process.env.WP_API_URL || "https://royalblue-anteater-980825.hostingersite.com/wp-json/wp/v2";
 
@@ -127,7 +128,7 @@ export async function checkAutomationDuplicate(sourceId: string, wpAuth: string)
         // FIX: We will rely on `meta_key` and `meta_value`. 
         // We need to assume the `automation_source_id` was saved in `meta`.
 
-        const metaUrl = `${WP_API_URL}/posts?status=any&per_page=1&search=${encodeURIComponent(sourceId)}`;
+        const metaUrl = `${WP_API_URL}/posts?status=any&per_page=1&search=${encodeURIComponent(sourceId)}&_fields=id,title,meta,content`;
         // status=any to find drafts/pending too.
 
         const searchRes = await fetch(metaUrl, {
@@ -193,5 +194,183 @@ export async function checkPostExistsByTitle(title: string, wpAuth: string): Pro
         return false;
     } catch (e) {
         return false;
+    }
+}
+
+// ---- Improved Duplicate Check (Batch & Memory) ----
+
+interface VideoCheckEntry {
+    videoId: string;
+    title: string;
+}
+
+/**
+ * Fetch recent 100 posts to build a memory cache for duplicate checking.
+ * Analyzes ALL recent posts (Trends, YouTube, Howto) to prevent duplicates.
+ */
+export async function getRecentAutomationPosts(wpAuth: string): Promise<VideoCheckEntry[]> {
+    try {
+        // Fetch recent 200 posts regardless of tag to catch ALL types of duplicates
+        // Added status=any to include private, draft, future posts in duplicate check
+        const res = await fetch(`${WP_API_URL}/posts?per_page=200&status=any&_fields=id,title,meta,content`, {
+            headers: { 'Authorization': `Basic ${wpAuth}` },
+            cache: 'no-store'
+        });
+
+        if (!res.ok) return [];
+
+        const posts = await res.json();
+        const entries: VideoCheckEntry[] = [];
+
+        for (const p of posts) {
+            let vId = "";
+            let sourceId = "";
+
+            // Extract IDs from Meta
+            if (p.meta?.automation_source_id) {
+                sourceId = p.meta.automation_source_id;
+            }
+            if (p.meta?.youtube_source_id) {
+                vId = p.meta.youtube_source_id;
+            } else if (sourceId && sourceId.startsWith('youtube_')) {
+                vId = sourceId.replace('youtube_', '');
+            } else {
+                // Fallback for YouTube: content regex
+                const match = p.content?.rendered?.match(/youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/);
+                if (match) vId = match[1];
+            }
+
+            entries.push({
+                videoId: vId || sourceId || "", // Use sourceId if videoId is missing (for Trends/Howto)
+                title: p.title.rendered
+            });
+        }
+
+        console.log(`[WP-Batch] Loaded ${entries.length} recent posts for global duplicate checking.`);
+        return entries;
+
+    } catch (e) {
+        console.error("[WP-Batch] Failed to load existing posts:", e);
+        return [];
+    }
+}
+
+import { isTitleDuplicate } from "./text-similarity";
+
+/**
+ * Check if the video is a duplicate using the memory cache.
+ * Checks ID exact match OR Title similarity (Keyword/Entity based).
+ */
+export function isDuplicateIdeally(
+    videoId: string,
+    videoTitle: string,
+    existingPosts: VideoCheckEntry[]
+): { isDuplicate: boolean; reason: string } {
+
+    // 1. ID Check (Exact)
+    if (videoId) {
+        const idMatch = existingPosts.find(p => p.videoId === videoId);
+        if (idMatch) {
+            return { isDuplicate: true, reason: `ID Match (${videoId})` };
+        }
+    }
+
+    // 2. Advanced Title Similarity Check (Keyword & Entity)
+    // Checks against ALL recent titles
+    for (const p of existingPosts) {
+        const { isDuplicate, reason, score } = isTitleDuplicate(videoTitle, p.title);
+
+        if (isDuplicate) {
+            console.log(`[WP-Dedup] Similar Title Detected: "${videoTitle}" vs "${p.title}"`);
+            return { isDuplicate: true, reason: `Title Similarity: ${reason}` };
+        }
+    }
+
+    return { isDuplicate: false, reason: "" };
+}
+
+/**
+ * Create a WordPress Post with automatic Google Indexing
+ */
+export async function createPostWithIndexing(
+    postData: {
+        title: string;
+        content: string;
+        status: string;
+        categories?: number[];
+        tags?: number[];
+        featured_media?: number;
+        meta?: Record<string, any>;
+        slug?: string;
+    },
+    wpAuth: string
+): Promise<WPPost | null> {
+    try {
+        console.log(`[WP-Create] Creating post: ${postData.title}`);
+
+        // 1. WordPress에 글 생성
+        const res = await fetch(`${WP_API_URL}/posts`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Basic ${wpAuth}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(postData)
+        });
+
+        if (!res.ok) {
+            const errorText = await res.text();
+            console.error(`[WP-Create] Failed to create post: ${res.status}`, errorText);
+            return null;
+        }
+
+        const post = await res.json();
+        console.log(`[WP-Create] ✅ Post created: ID ${post.id}`);
+
+        // 2. 발행 상태면 즉시 색인 요청
+        if (post.status === 'publish' && (post.link || post.slug)) {
+            // WordPress URL을 Next.js URL로 변환
+            const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://semicolonittech.com';
+            // post.link comes from WP, e.g. https://.../slug/ or similar. 
+            // We trust post.slug if available.
+            const slug = post.slug || post.link.split('/').filter((s: string) => s).pop();
+            const indexUrl = `${siteUrl}/blog/${slug}`;
+
+            console.log(`[WP-Create] 🔍 Requesting Google Indexing for: ${indexUrl}`);
+            const indexed = await googlePublishUrl(indexUrl);
+
+            // 색인 요청 성공 여부와 시간을 메타데이터로 저장
+            if (indexed) {
+                try {
+                    await fetch(`${WP_API_URL}/posts/${post.id}`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Basic ${wpAuth}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            meta: { indexing_requested_at: new Date().toISOString() }
+                        })
+                    });
+                } catch (ignore) {
+                    console.warn("[WP-Create] Failed to save indexing timestamp");
+                }
+            }
+        }
+
+        // Trigger Cache Revalidation for automated posts
+        try {
+            (revalidateTag as any)("posts");
+            revalidatePath("/blog", "page");
+            revalidatePath("/", "layout");
+        } catch (e) {
+            console.warn("[WP-Create] Revalidation failed (likely execution context issue):", e);
+        }
+
+        return post;
+
+    } catch (e) {
+        console.error("[WP-Create] Error:", e);
+        return null; // Or throw? returning null is safer for now to avoid crashing cron entirely unexpectedly if called in loop (though here it's usually one-off)
     }
 }

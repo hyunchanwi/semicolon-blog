@@ -4,7 +4,7 @@ import { TavilySearchProvider } from "@/lib/search/tavily";
 import { generateBlogPost } from "@/lib/gemini";
 import { getBestTopics, TrendingTopic } from "@/lib/trends/google-trends";
 import { getFeaturedImage } from "@/lib/images/unsplash";
-import { uploadImageFromUrl, getOrCreateTag, checkAutomationDuplicate } from "@/lib/wp-server";
+import { uploadImageFromUrl, getOrCreateTag, getRecentAutomationPosts, isDuplicateIdeally, checkAutomationDuplicate, createPostWithIndexing } from "@/lib/wp-server";
 import { googlePublishUrl } from "@/lib/google-indexing";
 import { classifyContent } from "@/lib/category-rules";
 
@@ -154,11 +154,13 @@ export async function GET(request: NextRequest) {
         console.log(`[Cron] ✅ Generated: "${koreanTitle}" | SEO: ${focusKeyphrase} | Slug: ${slug}`);
 
         // 6. 이미지 설정 (Tavily > Unsplash > Fallback)
+        // 6. 이미지 설정 (Tavily > Unsplash > Fallback)
         let featuredImageHtml = "";
         let bodyImageHtml = "";
         let featuredMediaId = 0;
         let imageUrl = "";
         let imageCredit = "";
+        let finalBodyContent = htmlContent; // Initialized here
 
         // Strategy 1: Try Tavily Images (Most Relevant)
         const tavilyImages = searchResults[0]?.images || [];
@@ -205,7 +207,68 @@ export async function GET(request: NextRequest) {
                 </figure>
             `;
 
-            // Body Image (Secondary)
+            // [NEW] 6.5 본문 이미지 플레이스홀더 처리 ([IMAGE: query])
+            const imageMatches = htmlContent.match(/\[IMAGE: [^\]]+\]/g);
+
+            if (imageMatches && imageMatches.length > 0) {
+                console.log(`[Cron] 🔍 Found ${imageMatches.length} image placeholders`);
+
+                // 병렬로 이미지 검색 및 처리 시작
+                const imagePromises = imageMatches.map(async (match: string) => {
+                    const query = match.replace('[IMAGE: ', '').replace(']', '').trim();
+                    let imgHtml = '';
+
+                    try {
+                        console.log(`[Cron] Searching image for: "${query}"`);
+                        // Reuse searcher
+                        const results = await searcher.search(`${query} image`);
+                        const bestResult = results.find((r: any) => r.images && r.images.length > 0);
+
+                        let foundImageUrl = '';
+                        let foundImageCredit = 'Source: Internet';
+
+                        if (bestResult && bestResult.images && bestResult.images.length > 0) {
+                            foundImageUrl = bestResult.images[0];
+                        } else {
+                            // Fallback to Unsplash inside parallel task if available
+                            const unsplashImg = await getFeaturedImage(query);
+                            if (unsplashImg) {
+                                foundImageUrl = unsplashImg.url;
+                                foundImageCredit = unsplashImg.credit;
+                            }
+                        }
+
+                        if (foundImageUrl) {
+                            imgHtml = `
+                            <figure class="wp-block-image size-large">
+                                <img src="${foundImageUrl}" alt="${query}" style="border-radius:12px; box-shadow:0 8px 30px rgba(0,0,0,0.12); width:100%; height:auto;" />
+                                <figcaption style="text-align:center; font-size:14px; color:#888; margin-top:8px;">${foundImageCredit}</figcaption>
+                            </figure>`;
+                        }
+                    } catch (e) {
+                        console.error(`[Cron] Failed to replace image placeholder ${match}`, e);
+                    }
+
+                    return { match, imgHtml };
+                });
+
+                // 모든 이미지 처리가 끝날 때까지 대기
+                const processedImages = await Promise.all(imagePromises);
+
+                // 본문 치환
+                for (const { match, imgHtml } of processedImages) {
+                    if (imgHtml) {
+                        finalBodyContent = finalBodyContent.replace(match, imgHtml);
+                    } else {
+                        finalBodyContent = finalBodyContent.replace(match, ""); // 실패 시 제거
+                    }
+                }
+            }
+
+            // Body Image (Secondary) - Only add if no placeholders were found/processed to avoid overcrowding
+            // or just add it anyway as a general rule if specific section needs it? 
+            // Let's keep existing logic but append to finalBodyContent
+
             if (tavilyImages.length > 1) {
                 bodyImageHtml = `
                      <figure style="margin: 2rem 0;">
@@ -225,8 +288,8 @@ export async function GET(request: NextRequest) {
             console.log("[Cron] Image processing failed:", imgError);
         }
 
-        // 본문 이미지 삽입 (두 번째 H3 태그 앞)
-        let finalHtmlContent = htmlContent;
+        // 본문 이미지 삽입 (두 번째 H3 태그 앞) - using finalBodyContent now
+        let finalHtmlContent = finalBodyContent; // Renamed to avoid confusion with const below
         if (bodyImageHtml) {
             const insertionPoint = finalHtmlContent.indexOf('<h3>', finalHtmlContent.indexOf('<h3>') + 1);
             if (insertionPoint > 0) {
@@ -241,63 +304,40 @@ export async function GET(request: NextRequest) {
 
         console.log(`[Cron] 🧠 Classified as Category ID: ${categoryId}`);
 
-        // 7.5 [Race Condition Check] Final check right before publishing
-        const { exists: finalExists } = await checkAutomationDuplicate(`trend_${selectedTitle}`, WP_AUTH);
-        if (finalExists) {
-            console.log(`[Cron] 🛑 Duplicate detected in final check for "${selectedTitle}". Skipping.`);
-            return NextResponse.json({ success: true, message: "Duplicate detected in final check" });
-        }
+
 
         // 8. WordPress에 발행
         if (!WP_AUTH) throw new Error("WP_AUTH not set");
 
+        const trendTag = await getOrCreateTag("Trend", WP_AUTH);
+        const tags = trendTag ? [trendTag] : [];
+
         // 이미지를 글 상단에 추가 (최종 본문)
+        // Restore finalContent definition which was accidentally removed
         const finalContent = featuredImageHtml + finalHtmlContent;
 
-        const wpRes = await fetch(`${WP_API_URL}/posts`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Basic ${WP_AUTH}`,
-            },
-            body: JSON.stringify({
-                title: koreanTitle,
-                content: finalContent + `\n<!-- automation_source_id: trend_${selectedTitle} -->`,
-                status: "publish",
-                slug: slug || undefined, // Add English slug
-                categories: [categoryId],
-                featured_media: featuredMediaId > 0 ? featuredMediaId : undefined,
-                tags: (await getOrCreateTag("Trend", WP_AUTH)) ? [(await getOrCreateTag("Trend", WP_AUTH))!] : [],
-                // Rank Math SEO meta fields + Global Automation ID
-                meta: {
-                    automation_source_id: `trend_${selectedTitle}`,
-                    rank_math_title: seoTitle,
-                    rank_math_description: metaDescription,
-                    rank_math_focus_keyword: focusKeyphrase,
-                },
-            }),
-        });
+        const newPost = await createPostWithIndexing({
+            title: koreanTitle,
+            content: finalContent + `\n<!-- automation_source_id: trend_${selectedTitle} -->`,
+            status: "publish",
+            slug: slug || undefined,
+            categories: [categoryId],
+            featured_media: featuredMediaId > 0 ? featuredMediaId : undefined,
+            tags: tags,
+            meta: {
+                automation_source_id: `trend_${selectedTitle}`,
+                rank_math_title: seoTitle,
+                rank_math_description: metaDescription,
+                rank_math_focus_keyword: focusKeyphrase,
+            }
+        }, WP_AUTH);
 
-        if (!wpRes.ok) {
-            const err = await wpRes.json();
-            throw new Error(`WordPress Error: ${JSON.stringify(err)}`);
-        }
+        if (!newPost) throw new Error("Failed to create post");
+        const newPostAny = newPost as any;
 
-        const newPost = await wpRes.json();
         console.log(`[Cron] ✅ Post created: ID ${newPost.id}`);
 
-        // Google Indexing API 알림
-        const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://semicolonittech.com";
-        const postSlug = newPost.slug || newPost.link.split("/").filter((s: string) => s).pop();
-        const publicUrl = `${siteUrl}/blog/${postSlug}`;
-
-        console.log(`[Cron] 📡 Notifying Google Indexing for: ${publicUrl}`);
-        try {
-            await googlePublishUrl(publicUrl);
-            console.log("[Cron] Google Indexing request sent.");
-        } catch (err) {
-            console.error("[Cron] Google Indexing failed:", err);
-        }
+        // Google Indexing API handled inside createPostWithIndexing
 
         return NextResponse.json({
             success: true,
@@ -309,7 +349,7 @@ export async function GET(request: NextRequest) {
             } : null,
             postId: newPost.id,
             categoryId: categoryId,
-            link: newPost.link
+            link: newPostAny.link
         });
 
     } catch (error) {

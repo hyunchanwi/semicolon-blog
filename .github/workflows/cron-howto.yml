@@ -1,0 +1,17 @@
+name: How-to Guide Cron
+
+on:
+  schedule:
+    # KST 15:00 = UTC 06:00
+    # - cron: '0 6 * * *' (Disabled by user request)
+  workflow_dispatch:
+
+jobs:
+  trigger-howto:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger How-to API
+        run: |
+          curl -X GET ${{ secrets.NEXT_PUBLIC_SITE_URL }}/api/cron/howto \
+          -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+          --fail

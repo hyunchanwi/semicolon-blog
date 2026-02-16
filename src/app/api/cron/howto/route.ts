@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { TavilySearchProvider } from "@/lib/search/tavily";
 import { getFeaturedImage } from "@/lib/images/unsplash";
-import { uploadImageFromUrl, getOrCreateTag, checkAutomationDuplicate } from "@/lib/wp-server";
+import { uploadImageFromUrl, getOrCreateTag, getRecentAutomationPosts, isDuplicateIdeally, createPostWithIndexing } from "@/lib/wp-server";
 import { getBestTopics, TrendingTopic } from "@/lib/trends/google-trends";
 import { classifyContent } from "@/lib/category-rules";
 import { googlePublishUrl } from "@/lib/google-indexing";
@@ -52,7 +52,7 @@ async function getRecentTopics(): Promise<string[]> {
 }
 
 // 1. Get Topic (Trends + Tavily)
-async function getHowToTopic(recentTopics: string[], forceTopic?: string): Promise<any> {
+async function getHowToTopic(recentTopics: string[], existingPosts: any[], forceTopic?: string): Promise<any> {
     const tavily = new TavilySearchProvider(process.env.TAVILY_API_KEY || "");
 
     let selectedTopic: TrendingTopic | null = null;
@@ -72,9 +72,11 @@ async function getHowToTopic(recentTopics: string[], forceTopic?: string): Promi
                 }
 
                 // [Duplicate Check]
-                const { exists } = await checkAutomationDuplicate(`howto_${t.title}`, WP_AUTH);
-                if (exists) {
-                    console.log(`[HowTo] ⚠️ Skipping candidate "${t.title}" - Already published (Meta Match)`);
+                // ID for HowTo: "howto_{title}"
+                const { isDuplicate, reason } = isDuplicateIdeally(`howto_${t.title}`, t.title, existingPosts);
+
+                if (isDuplicate) {
+                    console.log(`[HowTo] ⚠️ Skipping candidate "${t.title}" - ${reason}`);
                     continue;
                 }
 
@@ -213,56 +215,7 @@ async function processImages(content: string, wpAuth: string): Promise<string> {
     return processedContent;
 }
 
-// 4. Publish
-async function publishPost(title: string, content: string, tags: number[], originalTitle: string, slug?: string) {
-    if (!WP_AUTH) throw new Error("No WP_AUTH");
-
-    // Generate Featured Image
-    let featuredImg = await getFeaturedImage(title);
-
-    if (!featuredImg) {
-        // Fallback: Use reliable random tech images
-        const fallbacks = [
-            "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&q=80&w=1200",
-            "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&q=80&w=1200",
-            "https://images.unsplash.com/photo-1485827404703-89b55fcc595e?auto=format&fit=crop&q=80&w=1200",
-            "https://images.unsplash.com/photo-1531297461136-82lw8fca8b66?auto=format&fit=crop&q=80&w=1200"
-        ];
-        const randomUrl = fallbacks[Math.floor(Math.random() * fallbacks.length)];
-        featuredImg = { url: randomUrl, credit: "Unsplash (Fallback)" };
-        console.log(`[HowTo] Using fallback thumbnail: ${randomUrl}`);
-    }
-
-    let mediaId = 0;
-
-    if (featuredImg) {
-        const uploaded = await uploadImageFromUrl(featuredImg.url, title, WP_AUTH);
-        if (uploaded) mediaId = uploaded.id;
-    }
-
-    const res = await fetch(`${WP_API_URL}/posts`, {
-        method: 'POST',
-        headers: {
-            'Authorization': `Basic ${WP_AUTH}`,
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            title,
-            content: content + `\n<!-- automation_source_id: howto_${originalTitle} -->`,
-            status: 'publish',
-            slug: slug || undefined, // Add English slug
-            categories: [CATEGORY_ID_HOWTO],
-            tags: tags,
-            featured_media: mediaId > 0 ? mediaId : undefined,
-            meta: {
-                automation_source_id: `howto_${originalTitle}` // Use original topic for ID
-            }
-        })
-    });
-
-    if (!res.ok) throw new Error(await res.text());
-    return res.json();
-}
+// Local publishPost removed. Using createPostWithIndexing from lib/wp-server.ts
 
 export async function GET(request: NextRequest) {
     const authHeader = request.headers.get("authorization");
@@ -282,11 +235,14 @@ export async function GET(request: NextRequest) {
         const jitter = Math.floor(Math.random() * 2000);
         await new Promise(resolve => setTimeout(resolve, jitter));
 
-        // 0. 최근 주제 가져오기
+        // 0. Pre-fetch existing posts for batch duplicate checking
+        const existingPosts = await getRecentAutomationPosts(WP_AUTH);
+
+        // 0.5 최근 주제 가져오기
         const recentTopics = await getRecentTopics();
 
         // 1. Topic
-        const topic = await getHowToTopic(recentTopics, forceTopic || undefined);
+        const topic = await getHowToTopic(recentTopics, existingPosts, forceTopic || undefined);
         if (!topic) {
             return NextResponse.json({ success: false, message: "No valid topic found" });
         }
@@ -300,9 +256,9 @@ export async function GET(request: NextRequest) {
         console.log(`[HowTo] ✅ Generated: ${generated.title}`);
 
         // [Race Condition Check] Final check right before publishing
-        const { exists: finalExists } = await checkAutomationDuplicate(`howto_${topic.title}`, WP_AUTH);
-        if (finalExists) {
-            console.log(`[HowTo] 🛑 Duplicate detected in final check for "${topic.title}". Skipping.`);
+        const { isDuplicate: finalDuplicate, reason: finalReason } = isDuplicateIdeally(`howto_${topic.title}`, topic.title, existingPosts);
+        if (finalDuplicate) {
+            console.log(`[HowTo] 🛑 Duplicate detected in final check for "${topic.title}". Skipping. (${finalReason})`);
             return NextResponse.json({ success: true, message: "Duplicate detected in final check" });
         }
 
@@ -310,28 +266,56 @@ export async function GET(request: NextRequest) {
         const tagId = await getOrCreateTag("사용법", WP_AUTH);
         const tags = tagId ? [tagId] : [];
 
-        const post = await publishPost(generated.title, finalContent, tags, topic.title, generated.slug);
+        // Generate Featured Image (Moved from removed publishPost)
+        let featuredImg = await getFeaturedImage(generated.title);
 
-        console.log(`[HowTo] Published: ${post.link}`);
-
-        // Google Indexing API 알림
-        const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://semicolonittech.com";
-        const postSlug = (post as any).slug || post.link.split("/").filter((s: string) => s).pop();
-        const publicUrl = `${siteUrl}/blog/${postSlug}`;
-
-        console.log(`[HowTo] 📡 Notifying Google Indexing for: ${publicUrl}`);
-        console.log(`[HowTo] 📡 Notifying Google Indexing for: ${publicUrl}`);
-        try {
-            await googlePublishUrl(publicUrl);
-        } catch (err) {
-            console.error("[HowTo] Google Indexing failed:", err);
+        if (!featuredImg) {
+            // Fallback: Use reliable random tech images
+            const fallbacks = [
+                "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&q=80&w=1200",
+                "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&q=80&w=1200",
+                "https://images.unsplash.com/photo-1485827404703-89b55fcc595e?auto=format&fit=crop&q=80&w=1200",
+                "https://images.unsplash.com/photo-1531297461136-82lw8fca8b66?auto=format&fit=crop&q=80&w=1200"
+            ];
+            const randomUrl = fallbacks[Math.floor(Math.random() * fallbacks.length)];
+            featuredImg = { url: randomUrl, credit: "Unsplash (Fallback)" };
+            console.log(`[HowTo] Using fallback thumbnail: ${randomUrl}`);
         }
+
+        let mediaId = 0;
+
+        if (featuredImg) {
+            const uploaded = await uploadImageFromUrl(featuredImg.url, generated.title, WP_AUTH);
+            if (uploaded) mediaId = uploaded.id;
+        }
+
+        const post = await createPostWithIndexing({
+            title: generated.title,
+            content: finalContent + `\n<!-- automation_source_id: howto_${topic.title} -->`,
+            status: 'publish',
+            slug: generated.slug || undefined,
+            categories: [CATEGORY_ID_HOWTO],
+            tags: tags,
+            featured_media: mediaId > 0 ? mediaId : undefined,
+            meta: {
+                automation_source_id: `howto_${topic.title}`
+            }
+        }, WP_AUTH);
+
+        if (!post) throw new Error("Failed to create post");
+
+        const postAny = post as any;
+        console.log(`[HowTo] Published: ${postAny.link}`);
+
+        // Google Indexing API is correctly handled inside createPostWithIndexing now.
+        // But the previous code had specific logging. createPostWithIndexing logs too.
+        // We can just trust createPostWithIndexing.
 
         // 구독자 알림 발송 (비동기)
         getVerifiedSubscribers().then(async (subscribers) => {
             if (subscribers.length > 0) {
                 const excerptText = stripHtml(finalContent).slice(0, 200) + "...";
-                const slug = post.link.split("/").pop() || "";
+                const slug = postAny.link.split("/").pop() || "";
                 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://semicolon-blog.vercel.app";
                 await sendNewPostNotification(subscribers, {
                     title: generated.title,
@@ -347,7 +331,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({
             success: true,
             id: post.id,
-            link: post.link,
+            link: postAny.link,
             topic: topic.title
         });
 

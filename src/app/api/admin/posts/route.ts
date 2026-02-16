@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidateTag, revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
 import { createPost } from "@/lib/wp-admin-api";
 import { stripHtml } from "@/lib/wp-api";
@@ -43,6 +44,11 @@ export async function POST(request: NextRequest) {
             featured_media,
             meta: aiSummary ? { ai_summary: aiSummary } : undefined,
         });
+
+        // Trigger Cache Revalidation
+        (revalidateTag as any)("posts");
+        revalidatePath("/blog", "page");
+        revalidatePath("/", "layout");
 
         // Google Indexing & Email Notification (Only if published)
         if (post.status === 'publish') {

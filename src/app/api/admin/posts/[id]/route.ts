@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidateTag, revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
 import { updatePost, deletePost } from "@/lib/wp-admin-api";
 import { generateSummary } from "@/lib/summary";
@@ -52,8 +53,13 @@ export async function PUT(
             const publicUrl = `${siteUrl}/blog/${postSlug}`;
 
             console.log(`[Admin] 📡 Indexing: ${publicUrl}`);
-            googlePublishUrl(publicUrl).catch(e => console.error(e));
+            await googlePublishUrl(publicUrl).catch(e => console.error(e));
         }
+
+        // Trigger Cache Revalidation
+        (revalidateTag as any)("posts");
+        revalidatePath("/blog", "page");
+        revalidatePath("/", "layout");
 
         return NextResponse.json({ success: true, post });
     } catch (error) {
@@ -84,6 +90,11 @@ export async function DELETE(
         const postId = parseInt(id, 10);
 
         await deletePost(postId);
+
+        // Trigger Cache Revalidation
+        (revalidateTag as any)("posts");
+        revalidatePath("/blog", "page");
+        revalidatePath("/", "layout");
 
         return NextResponse.json({ success: true });
     } catch (error) {
@@ -117,6 +128,11 @@ export async function PATCH(
 
         // Only update categories, no summary regeneration
         const post = await updatePost(postId, { categories });
+
+        // Trigger Cache Revalidation
+        (revalidateTag as any)("posts");
+        revalidatePath("/blog", "page");
+        revalidatePath("/", "layout");
 
         return NextResponse.json({ success: true, post });
     } catch (error) {

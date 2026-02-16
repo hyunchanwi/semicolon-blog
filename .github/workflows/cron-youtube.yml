@@ -1,0 +1,19 @@
+name: YouTube Review Cron
+
+on:
+  schedule:
+    # KST 12:00 = UTC 03:00
+    # KST 21:00 = UTC 12:00
+    - cron: '0 3 * * *'
+    - cron: '0 12 * * *'
+  workflow_dispatch:
+
+jobs:
+  trigger-youtube:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger YouTube API
+        run: |
+          curl -X GET ${{ secrets.NEXT_PUBLIC_SITE_URL }}/api/cron/youtube \
+          -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+          --fail
