@@ -3,33 +3,27 @@ import { googlePublishUrl } from "./google-indexing";
 import { revalidatePath, revalidateTag } from "next/cache";
 
 const WP_API_URL = process.env.WP_API_URL || "https://royalblue-anteater-980825.hostingersite.com/wp-json/wp/v2";
+const WP_AUTH = (process.env.WP_AUTH || "").trim();
 
 /**
  * Uploads an image from a URL to WordPress Media Library
- * @param imageUrl The URL of the image to download
- * @param title Title for the media item
- * @param wpAuth WordPress Basic Auth string
- * @returns Object with ID and URL or null if failed
  */
-export async function uploadImageFromUrl(imageUrl: string, title: string, wpAuth: string): Promise<{ id: number; url: string } | null> {
+export async function uploadImageFromUrl(imageUrl: string, title: string, wpAuth: string): Promise<{ id: number; source_url: string } | null> {
     try {
-        console.log(`[WP-Upload] Downloading: ${imageUrl}`);
+        console.log(`[WP-Upload] Attempting to download image: ${imageUrl}`);
+
+        // 1. Download image
         const imgRes = await fetch(imageUrl);
-        if (!imgRes.ok) {
-            console.error(`[WP-Upload] Failed to download image: ${imgRes.status}`);
-            return null;
-        }
+        if (!imgRes.ok) throw new Error(`Failed to download image from ${imageUrl}: ${imgRes.status}`);
 
-        const buffer = await imgRes.arrayBuffer();
-        const blob = new Blob([buffer], { type: imgRes.headers.get("content-type") || "image/jpeg" });
+        const blob = await imgRes.blob();
+        const extension = imageUrl.split('.').pop()?.split('?')[0] || 'jpg';
+        const filename = `${title.replace(/[^a-z0-9]/gi, '-').toLowerCase()}-${Date.now()}.${extension}`;
 
-        // Clean filename
-        const filename = `${title.replace(/[^a-zA-Z0-9가-힣]/g, '-').slice(0, 30)}-${Date.now()}.jpg`;
-
+        // 2. Upload to WordPress
         const formData = new FormData();
         formData.append('file', blob, filename);
         formData.append('title', title);
-        formData.append('alt_text', title);
 
         console.log(`[WP-Upload] Uploading to WordPress as ${filename}...`);
         const uploadRes = await fetch(`${WP_API_URL}/media`, {
@@ -41,17 +35,17 @@ export async function uploadImageFromUrl(imageUrl: string, title: string, wpAuth
         });
 
         if (!uploadRes.ok) {
-            console.error(`[WP-Upload] Upload failed: ${await uploadRes.text()}`);
+            const errorText = await uploadRes.text();
+            console.error(`[WP-Upload] Failed: ${uploadRes.status}`, errorText);
             return null;
         }
 
         const data = await uploadRes.json();
-        console.log(`[WP-Upload] Success! Media ID: ${data.id}`);
+        console.log(`[WP-Upload] ✅ Success: ID ${data.id}`);
         return {
             id: data.id,
-            url: data.source_url // WordPress provided URL
+            source_url: data.source_url
         };
-
     } catch (e) {
         console.error("[WP-Upload] Error:", e);
         return null;
@@ -59,30 +53,67 @@ export async function uploadImageFromUrl(imageUrl: string, title: string, wpAuth
 }
 
 /**
- * Get or Create a WordPress Tag by Name
+ * Gets or creates a category by name
  */
-export async function getOrCreateTag(tagName: string, wpAuth: string): Promise<number | null> {
+export async function getOrCreateCategory(name: string, wpAuth: string): Promise<number | null> {
     try {
-        // 1. Search for existing tag
-        const searchRes = await fetch(`${WP_API_URL}/tags?search=${encodeURIComponent(tagName)}`, {
+        // 1. Check if category exists
+        const res = await fetch(`${WP_API_URL}/categories?search=${encodeURIComponent(name)}`, {
             headers: { 'Authorization': `Basic ${wpAuth}` }
         });
 
-        if (searchRes.ok) {
-            const tags = await searchRes.json();
-            const existing = tags.find((t: any) => t.name.toLowerCase() === tagName.toLowerCase());
+        if (res.ok) {
+            const categories = await res.json();
+            const existing = categories.find((c: any) => c.name.toLowerCase() === name.toLowerCase());
             if (existing) return existing.id;
         }
 
-        // 2. Create new tag if not found
-        console.log(`[WP-Tag] Creating new tag: ${tagName}`);
+        // 2. Create category
+        const createRes = await fetch(`${WP_API_URL}/categories`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Basic ${wpAuth}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ name })
+        });
+
+        if (createRes.ok) {
+            const newCat = await createRes.json();
+            return newCat.id;
+        }
+
+        return null;
+    } catch (e) {
+        console.error("[WP-Category] Error:", e);
+        return null;
+    }
+}
+
+/**
+ * Gets or creates a tag by name
+ */
+export async function getOrCreateTag(name: string, wpAuth: string): Promise<number | null> {
+    try {
+        // 1. Check if tag exists
+        const res = await fetch(`${WP_API_URL}/tags?search=${encodeURIComponent(name)}`, {
+            headers: { 'Authorization': `Basic ${wpAuth}` }
+        });
+
+        if (res.ok) {
+            const tags = await res.json();
+            const existing = tags.find((t: any) => t.name.toLowerCase() === name.toLowerCase());
+            if (existing) return existing.id;
+        }
+
+        // 2. Create tag
         const createRes = await fetch(`${WP_API_URL}/tags`, {
             method: 'POST',
             headers: {
                 'Authorization': `Basic ${wpAuth}`,
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ name: tagName })
+            body: JSON.stringify({ name })
         });
 
         if (createRes.ok) {
@@ -91,7 +122,6 @@ export async function getOrCreateTag(tagName: string, wpAuth: string): Promise<n
         }
 
         return null;
-        return null;
     } catch (e) {
         console.error("[WP-Tag] Error:", e);
         return null;
@@ -99,198 +129,75 @@ export async function getOrCreateTag(tagName: string, wpAuth: string): Promise<n
 }
 
 /**
- * Check if a post exists by a unique Automation Source ID (Standardized)
+ * Gets recent posts generated by automation to prevent duplicates
  */
-export async function checkAutomationDuplicate(sourceId: string, wpAuth: string): Promise<{ exists: boolean; matchedPost?: any }> {
+export async function getRecentAutomationPosts(wpAuth: string): Promise<WPPost[]> {
     try {
-        if (!wpAuth || !sourceId) return { exists: false };
-
-        console.log(`[WP-Check] Checking duplicate for: ${sourceId}`);
-
-        // Note: We use the 'automation_source_id' meta key.
-        // This requires the WP site to allow filtering by meta_key/meta_value in REST API.
-        // If this fails (e.g. permission or config), we might fall back to search.
-        // But searching content is unreliable if the ID is hidden in comments that aren't indexed.
-
-        // Strategy 1: Meta Query (Most Accurate)
-        // URL: /wp-json/wp/v2/posts?meta_key=automation_source_id&meta_value=...
-        // Note: Standard WP API might not expose arbitrary meta keys for filtering without 'register_meta'.
-        // However, many custom fields plugins or basic setups allow it if authorized.
-        // Since we are creating the post with this meta, we should try to query it.
-
-        // Let's try searching by title as a strong secondary check if the sourceId is usually part of the internal logic.
-        // But `sourceId` (e.g., youtube_VIDEOID) is NOT the title.
-
-        // Let's try to trust the current content search BUT also ensure we are checking Title if content fails?
-        // Actually, the user says duplicates *exist*. This means `exists: false` was returned even when it should be true.
-        // This implies the Content Search failed to find the hidden ID.
-
-        // FIX: We will rely on `meta_key` and `meta_value`. 
-        // We need to assume the `automation_source_id` was saved in `meta`.
-
-        const metaUrl = `${WP_API_URL}/posts?status=any&per_page=1&search=${encodeURIComponent(sourceId)}&_fields=id,title,meta,content`;
-        // status=any to find drafts/pending too.
-
-        const searchRes = await fetch(metaUrl, {
-            headers: { 'Authorization': `Basic ${wpAuth}` },
-            cache: 'no-store'
-        });
-
-        if (searchRes.ok) {
-            const posts = await searchRes.json();
-            if (posts.length > 0) {
-                // Confirm match
-                const p = posts[0];
-                const meta = p.meta || {};
-                // If meta has the ID
-                if (meta['automation_source_id'] === sourceId) {
-                    console.log(`[WP-Check] Match found via Meta ID: ${sourceId} (Post ${p.id})`);
-                    return { exists: true, matchedPost: p };
-                }
-
-                // Fallback: Check content string match
-                const content = p.content?.rendered || "";
-                if (content.includes(sourceId)) {
-                    console.log(`[WP-Check] Match found via Content Search: ${sourceId} (Post ${p.id})`);
-                    return { exists: true, matchedPost: p };
-                }
-            }
-        }
-
-        return { exists: false };
-    } catch (e) {
-        console.error("[WP-Check] Duplicate check error:", e);
-        return { exists: false };
-    }
-}
-
-/**
- * Check if a YouTube video has already been posted based on metadata
- */
-export async function checkVideoExists(videoId: string, wpAuth: string): Promise<{ exists: boolean; matchedPost?: any }> {
-    // Delegate to the standardized automation check
-    // We expect "youtube_{videoId}" to be present in the content/meta
-    return checkAutomationDuplicate(`youtube_${videoId}`, wpAuth);
-}
-
-/**
- * Check if a post exists by Title (Strong Duplicate Check)
- */
-export async function checkPostExistsByTitle(title: string, wpAuth: string): Promise<boolean> {
-    try {
-        const res = await fetch(`${WP_API_URL}/posts?search=${encodeURIComponent(title)}&per_page=1`, {
-            headers: { 'Authorization': `Basic ${wpAuth}` },
-            cache: 'no-store'
-        });
-        if (res.ok) {
-            const posts = await res.json();
-            if (posts.length > 0) {
-                const p = posts[0];
-                if (p.title.rendered.includes(title) || title.includes(p.title.rendered)) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    } catch (e) {
-        return false;
-    }
-}
-
-// ---- Improved Duplicate Check (Batch & Memory) ----
-
-interface VideoCheckEntry {
-    videoId: string;
-    title: string;
-}
-
-/**
- * Fetch recent 100 posts to build a memory cache for duplicate checking.
- * Analyzes ALL recent posts (Trends, YouTube, Howto) to prevent duplicates.
- */
-export async function getRecentAutomationPosts(wpAuth: string): Promise<VideoCheckEntry[]> {
-    try {
-        // Fetch recent 200 posts regardless of tag to catch ALL types of duplicates
-        // Added status=any to include private, draft, future posts in duplicate check
-        const res = await fetch(`${WP_API_URL}/posts?per_page=200&status=any&_fields=id,title,meta,content`, {
+        const res = await fetch(`${WP_API_URL}/posts?per_page=50&status=publish,draft,private`, {
             headers: { 'Authorization': `Basic ${wpAuth}` },
             cache: 'no-store'
         });
 
         if (!res.ok) return [];
-
-        const posts = await res.json();
-        const entries: VideoCheckEntry[] = [];
-
-        for (const p of posts) {
-            let vId = "";
-            let sourceId = "";
-
-            // Extract IDs from Meta
-            if (p.meta?.automation_source_id) {
-                sourceId = p.meta.automation_source_id;
-            }
-            if (p.meta?.youtube_source_id) {
-                vId = p.meta.youtube_source_id;
-            } else if (sourceId && sourceId.startsWith('youtube_')) {
-                vId = sourceId.replace('youtube_', '');
-            } else {
-                // Fallback for YouTube: content regex
-                const match = p.content?.rendered?.match(/youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/);
-                if (match) vId = match[1];
-            }
-
-            entries.push({
-                videoId: vId || sourceId || "", // Use sourceId if videoId is missing (for Trends/Howto)
-                title: p.title.rendered
-            });
-        }
-
-        console.log(`[WP-Batch] Loaded ${entries.length} recent posts for global duplicate checking.`);
-        return entries;
-
+        return await res.json();
     } catch (e) {
-        console.error("[WP-Batch] Failed to load existing posts:", e);
+        console.error("[WP-Recent] Error:", e);
         return [];
     }
 }
 
-import { isTitleDuplicate } from "./text-similarity";
-
 /**
- * Check if the video is a duplicate using the memory cache.
- * Checks ID exact match OR Title similarity (Keyword/Entity based).
+ * Checks if a video ID or title already exists in recent posts
  */
-export function isDuplicateIdeally(
-    videoId: string,
-    videoTitle: string,
-    existingPosts: VideoCheckEntry[]
-): { isDuplicate: boolean; reason: string } {
+export function isDuplicateIdeally(sourceId: string, title: string, existingPosts: WPPost[]): { isDuplicate: boolean; reason?: string } {
+    const cleanTitle = title.trim().toLowerCase();
 
-    // 1. ID Check (Exact)
-    if (videoId) {
-        const idMatch = existingPosts.find(p => p.videoId === videoId);
-        if (idMatch) {
-            return { isDuplicate: true, reason: `ID Match (${videoId})` };
+    for (const post of existingPosts) {
+        // 1. Check automation_source_id in content or meta if available
+        const content = post.content?.rendered || "";
+        if (content.includes(`automation_source_id: youtube_${sourceId}`)) {
+            return { isDuplicate: true, reason: `Match by ID: ${sourceId}` };
+        }
+
+        // 2. Check title similarity
+        const postTitle = post.title?.rendered.trim().toLowerCase();
+        if (postTitle === cleanTitle) {
+            return { isDuplicate: true, reason: `Match by Title: ${title}` };
         }
     }
 
-    // 2. Advanced Title Similarity Check (Keyword & Entity)
-    // Checks against ALL recent titles
-    for (const p of existingPosts) {
-        const { isDuplicate, reason, score } = isTitleDuplicate(videoTitle, p.title);
-
-        if (isDuplicate) {
-            console.log(`[WP-Dedup] Similar Title Detected: "${videoTitle}" vs "${p.title}"`);
-            return { isDuplicate: true, reason: `Title Similarity: ${reason}` };
-        }
-    }
-
-    return { isDuplicate: false, reason: "" };
+    return { isDuplicate: false };
 }
 
 /**
- * Create a WordPress Post with automatic Google Indexing
+ * Checks for duplicate posts specifically using automation_source_id meta field
+ */
+export async function checkAutomationDuplicate(sourceId: string, wpAuth: string): Promise<{ exists: boolean }> {
+    try {
+        // WordPress REST API doesn't support direct meta query without plugins usually, 
+        // but we can search for it in the content OR use the custom meta field if the API allows.
+        // For simplicity and robustness during transition, we use search + local filtering against recent automate posts.
+        const res = await fetch(`${WP_API_URL}/posts?search=${encodeURIComponent(sourceId)}&status=publish,draft,private`, {
+            headers: { 'Authorization': `Basic ${wpAuth}` },
+            cache: 'no-store'
+        });
+
+        if (res.ok) {
+            const posts = await res.json();
+            const exists = posts.some((p: any) =>
+                (p.content?.rendered || "").includes(`automation_source_id: ${sourceId}`) ||
+                (p.meta?.automation_source_id === sourceId)
+            );
+            return { exists };
+        }
+        return { exists: false };
+    } catch {
+        return { exists: false };
+    }
+}
+
+/**
+ * Creates a post and requests indexing if published
  */
 export async function createPostWithIndexing(
     postData: {
@@ -331,15 +238,12 @@ export async function createPostWithIndexing(
         if (post.status === 'publish' && (post.link || post.slug)) {
             // WordPress URL을 Next.js URL로 변환
             const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://semicolonittech.com';
-            // post.link comes from WP, e.g. https://.../slug/ or similar. 
-            // We trust post.slug if available.
             const slug = post.slug || post.link.split('/').filter((s: string) => s).pop();
             const indexUrl = `${siteUrl}/blog/${slug}`;
 
             console.log(`[WP-Create] 🔍 Requesting Google Indexing for: ${indexUrl}`);
             const indexed = await googlePublishUrl(indexUrl);
 
-            // 색인 요청 성공 여부와 시간을 메타데이터로 저장
             if (indexed) {
                 try {
                     await fetch(`${WP_API_URL}/posts/${post.id}`, {
@@ -371,6 +275,6 @@ export async function createPostWithIndexing(
 
     } catch (e) {
         console.error("[WP-Create] Error:", e);
-        return null; // Or throw? returning null is safer for now to avoid crashing cron entirely unexpectedly if called in loop (though here it's usually one-off)
+        return null;
     }
 }

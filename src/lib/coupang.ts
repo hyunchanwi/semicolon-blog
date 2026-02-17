@@ -5,7 +5,7 @@
  */
 
 const WP_API_URL = process.env.WP_API_URL || "https://royalblue-anteater-980825.hostingersite.com/wp-json/wp/v2";
-const WP_AUTH = process.env.WP_AUTH;
+const WP_AUTH = (process.env.WP_AUTH || "").trim();
 
 export interface Product {
     id?: number;

@@ -60,9 +60,13 @@ export interface PaginatedPosts {
 // PICKS (Products) Category ID to exclude from main blog feed
 const PRODUCTS_CATEGORY_ID = 32;
 
-export async function getPosts(perPage: number = 10, revalidate: number = 300): Promise<WPPost[]> {
+// Sanitize WP_AUTH to avoid issues with trailing characters/newlines on Vercel
+const WP_AUTH = (process.env.WP_AUTH || "").trim();
+
+export async function getPosts(perPage: number = 10, revalidate: number = 300, fields: string = ""): Promise<WPPost[]> {
+    const fieldsParam = fields ? `&_fields=${fields}` : "";
     const res = await fetch(
-        `${WP_API_URL}/posts?per_page=${perPage}&categories_exclude=${PRODUCTS_CATEGORY_ID}&_embed`,
+        `${WP_API_URL}/posts?per_page=${perPage}&categories_exclude=${PRODUCTS_CATEGORY_ID}&_embed${fieldsParam}`,
         { next: { revalidate, tags: ["posts"] } }
     );
     if (!res.ok) {

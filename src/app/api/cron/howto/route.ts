@@ -191,7 +191,7 @@ async function processImages(content: string, wpAuth: string): Promise<string> {
 
             if (imageUrl) {
                 const uploaded = await uploadImageFromUrl(imageUrl, query, wpAuth);
-                const finalUrl = uploaded ? uploaded.url : imageUrl;
+                const finalUrl = uploaded ? uploaded.source_url : imageUrl;
 
                 const imgHtml = `
                 <figure class="wp-block-image size-large">
