@@ -60,7 +60,7 @@ export interface PaginatedPosts {
 // PICKS (Products) Category ID to exclude from main blog feed
 const PRODUCTS_CATEGORY_ID = 32;
 
-export async function getPosts(perPage: number = 10, revalidate: number = 10): Promise<WPPost[]> {
+export async function getPosts(perPage: number = 10, revalidate: number = 300): Promise<WPPost[]> {
     const res = await fetch(
         `${WP_API_URL}/posts?per_page=${perPage}&categories_exclude=${PRODUCTS_CATEGORY_ID}&_embed`,
         { next: { revalidate, tags: ["posts"] } }
@@ -74,7 +74,7 @@ export async function getPosts(perPage: number = 10, revalidate: number = 10): P
 export async function getPostsWithPagination(page: number = 1, perPage: number = 12): Promise<PaginatedPosts> {
     const res = await fetch(
         `${WP_API_URL}/posts?page=${page}&per_page=${perPage}&categories_exclude=${PRODUCTS_CATEGORY_ID}&_embed`,
-        { next: { revalidate: 10, tags: ["posts"] } }
+        { next: { revalidate: 300, tags: ["posts"] } }
     );
 
 
