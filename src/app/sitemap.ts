@@ -18,7 +18,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }));
 
     // 2. Blog Posts
-    const posts = await getPosts(1000); // Fetch recent 1000 posts (Increased for better indexing coverage)
+    const posts = await getPosts(100); // 1000 is invalid for WP (usually max 100)
     const postRoutes = posts.map((post) => ({
         url: `${baseUrl}/blog/${post.slug}`,
         lastModified: new Date(post.date),

@@ -65,7 +65,11 @@ export async function getPosts(perPage: number = 10, revalidate: number = 300): 
         `${WP_API_URL}/posts?per_page=${perPage}&categories_exclude=${PRODUCTS_CATEGORY_ID}&_embed`,
         { next: { revalidate, tags: ["posts"] } }
     );
-    if (!res.ok) throw new Error("Failed to fetch posts");
+    if (!res.ok) {
+        const errorText = await res.text().catch(() => "No error body");
+        console.error(`[WP-API] Failed to fetch posts: ${res.status} ${res.statusText}`, errorText);
+        throw new Error(`Failed to fetch posts: ${res.status}`);
+    }
     const posts: WPPost[] = await res.json();
     // Double check: Filter out any posts that might have slipped through (e.g. cache issues)
     return posts.filter(post => !post.categories.includes(PRODUCTS_CATEGORY_ID));
