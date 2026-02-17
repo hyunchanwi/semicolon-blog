@@ -96,7 +96,7 @@ export async function getPostsWithPagination(page: number = 1, perPage: number =
 export async function getPostBySlug(slug: string): Promise<WPPost | null> {
     const res = await fetch(
         `${WP_API_URL}/posts?slug=${slug}&_embed`,
-        { next: { revalidate: 60, tags: ["posts", `post-${slug}`] } } // 1분 ISR 캐시 (성능 최적화)
+        { next: { revalidate: 60, tags: ["posts", `post-${slug.slice(0, 50)}`] } } // 1분 ISR 캐시 + 태그 길이 제한
     );
     if (!res.ok) throw new Error("Failed to fetch post");
     const posts = await res.json();

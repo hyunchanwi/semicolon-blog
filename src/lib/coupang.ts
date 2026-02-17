@@ -79,7 +79,59 @@ export async function getProducts(status: 'publish' | 'any' = 'publish'): Promis
     }
 }
 
-// ...
+/**
+ * 단일 상품 가져오기
+ */
+export async function getProduct(id: number): Promise<Product | null> {
+    try {
+        const fetchOptions: RequestInit = { cache: 'no-store' };
+        if (WP_AUTH) {
+            fetchOptions.headers = {
+                'Authorization': `Basic ${WP_AUTH}`
+            };
+        }
+
+        const res = await fetch(`${WP_API_URL}/posts/${id}`, fetchOptions);
+
+        if (!res.ok) {
+            console.error(`[Products] Failed to fetch product ${id}`);
+            return null;
+        }
+
+        const post = await res.json();
+        return parseProductFromPost(post);
+    } catch (error) {
+        console.error(`[Products] Error fetching product ${id}:`, error);
+        return null;
+    }
+}
+
+/**
+ * 단일 상품 가져오기
+ */
+export async function getProduct(id: number): Promise<Product | null> {
+    try {
+        const fetchOptions: RequestInit = { cache: 'no-store' };
+        if (WP_AUTH) {
+            fetchOptions.headers = {
+                'Authorization': `Basic ${WP_AUTH}`
+            };
+        }
+
+        const res = await fetch(`${WP_API_URL}/posts/${id}`, fetchOptions);
+
+        if (!res.ok) {
+            console.error(`[Products] Failed to fetch product ${id}`);
+            return null;
+        }
+
+        const post = await res.json();
+        return parseProductFromPost(post);
+    } catch (error) {
+        console.error(`[Products] Error fetching product ${id}:`, error);
+        return null;
+    }
+}
 
 /**
  * 상품 생성
@@ -172,6 +224,27 @@ export async function updateProduct(id: number, product: Partial<Product>): Prom
 }
 
 // ...
+
+/**
+ * 상품 삭제
+ */
+export async function deleteProduct(id: number): Promise<boolean> {
+    if (!WP_AUTH) return false;
+
+    try {
+        const res = await fetch(`${WP_API_URL}/posts/${id}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Basic ${WP_AUTH}`
+            }
+        });
+
+        return res.ok;
+    } catch {
+        return false;
+    }
+}
+
 
 // Helper: WordPress 포스트에서 상품 정보 파싱
 function parseProductFromPost(post: any): Product {

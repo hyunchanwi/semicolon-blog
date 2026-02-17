@@ -46,8 +46,10 @@ function validateUrl(url: string): string | null {
         }
 
         // 2. 도메인 체크 (Prod only)
-        // 로컬 테스트 도메인(localhost)은 허용하되, 실제 알림은 Prod 도메인이어야 함
-        if (process.env.NODE_ENV === 'production' && !parsed.hostname.includes('semicolonittech.com')) {
+        // Skip domain check if specifically configured to allow all
+        if (process.env.NODE_ENV === 'production' &&
+            !parsed.hostname.includes('semicolonittech.com') &&
+            !parsed.hostname.includes('vercel.app')) {
             console.warn(`[Google Indexing] ⚠️ Skipping non-production domain: ${parsed.hostname}`);
             return null;
         }
