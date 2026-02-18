@@ -3,7 +3,13 @@
  * Headless WordPress 백엔드에서 데이터를 가져오는 클라이언트
  */
 
+// Force HTTP/1.1: Hostinger blocks Node.js HTTP/2 (PROTOCOL_ERROR)
+import { Agent, fetch as undiciFetch } from "undici";
+
+const http1Agent = new Agent({ allowH2: false });
+
 const WP_API_URL = "https://royalblue-anteater-980825.hostingersite.com/wp-json/wp/v2";
+
 
 // Types
 export interface WPPost {
@@ -67,13 +73,23 @@ const WP_AUTH = (process.env.WP_AUTH || "").trim();
 async function fetchWithRetry(url: string, options: RequestInit & { next?: NextFetchRequestConfig } = {}, retries = 3): Promise<Response> {
     for (let attempt = 1; attempt <= retries; attempt++) {
         try {
-            const res = await fetch(url, options);
-            return res;
+            // Use undici fetch with HTTP/1.1 agent — Hostinger blocks HTTP/2 (PROTOCOL_ERROR)
+            const res = await undiciFetch(url, {
+                ...options,
+                // @ts-ignore — undici dispatcher option
+                dispatcher: http1Agent,
+            } as any);
+            return res as unknown as Response;
         } catch (err: any) {
-            const isNetworkError = err?.code === 'ECONNRESET' || err?.code === 'UND_ERR_SOCKET' || err?.message?.includes('fetch failed');
+            const isNetworkError =
+                err?.code === 'ECONNRESET' ||
+                err?.code === 'UND_ERR_SOCKET' ||
+                err?.code === 'UND_ERR_CONNECT_TIMEOUT' ||
+                err?.message?.includes('fetch failed') ||
+                err?.message?.includes('PROTOCOL_ERROR');
             if (isNetworkError && attempt < retries) {
-                const delay = attempt * 1000; // 1s, 2s
-                console.warn(`[WP-API] Network error on attempt ${attempt}/${retries}, retrying in ${delay}ms...`, err?.code);
+                const delay = attempt * 1000;
+                console.warn(`[WP-API] Network error on attempt ${attempt}/${retries}, retrying in ${delay}ms...`, err?.code || err?.message);
                 await new Promise(r => setTimeout(r, delay));
                 continue;
             }
@@ -84,6 +100,7 @@ async function fetchWithRetry(url: string, options: RequestInit & { next?: NextF
 }
 
 type NextFetchRequestConfig = { revalidate?: number; tags?: string[] };
+
 
 export async function getPosts(perPage: number = 10, revalidate: number = 300, fields: string = ""): Promise<WPPost[]> {
     const fieldsParam = fields ? `&_fields=${fields}` : "";
