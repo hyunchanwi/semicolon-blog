@@ -19,10 +19,15 @@ interface Props {
 
 // Generate static params for SSG
 export async function generateStaticParams() {
-    const posts = await getPosts(50);
-    return posts.map((post) => ({
-        slug: post.slug,
-    }));
+    try {
+        const posts = await getPosts(50);
+        return posts.map((post) => ({
+            slug: post.slug,
+        }));
+    } catch (error) {
+        console.warn("[Blog SSG] ⚠️ Failed to fetch posts for static generation, falling back to on-demand:", error);
+        return [];
+    }
 }
 
 // Dynamic metadata

@@ -12,10 +12,15 @@ interface Props {
 
 // Generate static params
 export async function generateStaticParams() {
-    const categories = await getCategories();
-    return categories.map((cat) => ({
-        slug: cat.slug,
-    }));
+    try {
+        const categories = await getCategories();
+        return categories.map((cat) => ({
+            slug: cat.slug,
+        }));
+    } catch (error) {
+        console.warn("[Category SSG] ⚠️ Failed to fetch categories for static generation:", error);
+        return [];
+    }
 }
 
 // Dynamic metadata
