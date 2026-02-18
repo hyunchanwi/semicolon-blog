@@ -63,61 +63,100 @@ const PRODUCTS_CATEGORY_ID = 32;
 // Sanitize WP_AUTH to avoid issues with trailing characters/newlines on Vercel
 const WP_AUTH = (process.env.WP_AUTH || "").trim();
 
+// Retry helper: retries on network errors (ECONNRESET, socket errors) with exponential backoff
+async function fetchWithRetry(url: string, options: RequestInit & { next?: NextFetchRequestConfig } = {}, retries = 3): Promise<Response> {
+    for (let attempt = 1; attempt <= retries; attempt++) {
+        try {
+            const res = await fetch(url, options);
+            return res;
+        } catch (err: any) {
+            const isNetworkError = err?.code === 'ECONNRESET' || err?.code === 'UND_ERR_SOCKET' || err?.message?.includes('fetch failed');
+            if (isNetworkError && attempt < retries) {
+                const delay = attempt * 1000; // 1s, 2s
+                console.warn(`[WP-API] Network error on attempt ${attempt}/${retries}, retrying in ${delay}ms...`, err?.code);
+                await new Promise(r => setTimeout(r, delay));
+                continue;
+            }
+            throw err;
+        }
+    }
+    throw new Error('fetchWithRetry: unreachable');
+}
+
+type NextFetchRequestConfig = { revalidate?: number; tags?: string[] };
+
 export async function getPosts(perPage: number = 10, revalidate: number = 300, fields: string = ""): Promise<WPPost[]> {
     const fieldsParam = fields ? `&_fields=${fields}` : "";
-    const res = await fetch(
-        `${WP_API_URL}/posts?per_page=${perPage}&categories_exclude=${PRODUCTS_CATEGORY_ID}&_embed${fieldsParam}`,
-        { next: { revalidate, tags: ["posts"] } }
-    );
-    if (!res.ok) {
-        const errorText = await res.text().catch(() => "No error body");
-        console.error(`[WP-API] Failed to fetch posts: ${res.status} ${res.statusText}`, errorText);
-        throw new Error(`Failed to fetch posts: ${res.status}`);
+    try {
+        const res = await fetchWithRetry(
+            `${WP_API_URL}/posts?per_page=${perPage}&categories_exclude=${PRODUCTS_CATEGORY_ID}&_embed${fieldsParam}`,
+            { next: { revalidate, tags: ["posts"] } }
+        );
+        if (!res.ok) {
+            const errorText = await res.text().catch(() => "No error body");
+            console.error(`[WP-API] Failed to fetch posts: ${res.status} ${res.statusText}`, errorText);
+            return [];
+        }
+        const posts: WPPost[] = await res.json();
+        return posts.filter(post => !post.categories.includes(PRODUCTS_CATEGORY_ID));
+    } catch (err) {
+        console.error('[WP-API] getPosts network error:', err);
+        return [];
     }
-    const posts: WPPost[] = await res.json();
-    // Double check: Filter out any posts that might have slipped through (e.g. cache issues)
-    return posts.filter(post => !post.categories.includes(PRODUCTS_CATEGORY_ID));
 }
 
 export async function getPostsWithPagination(page: number = 1, perPage: number = 12): Promise<PaginatedPosts> {
-    const res = await fetch(
-        `${WP_API_URL}/posts?page=${page}&per_page=${perPage}&categories_exclude=${PRODUCTS_CATEGORY_ID}&_embed`,
-        { next: { revalidate: 300, tags: ["posts"] } }
-    );
+    try {
+        const res = await fetchWithRetry(
+            `${WP_API_URL}/posts?page=${page}&per_page=${perPage}&categories_exclude=${PRODUCTS_CATEGORY_ID}&_embed`,
+            { next: { revalidate: 300, tags: ["posts"] } }
+        );
 
-
-    if (!res.ok) {
-        // Handle 400 Bad Request (e.g. page out of range)
-        if (res.status === 400) {
+        if (!res.ok) {
+            if (res.status === 400) {
+                return { posts: [], totalPages: 0, total: 0 };
+            }
+            console.error(`[WP-API] getPostsWithPagination failed: ${res.status}`);
             return { posts: [], totalPages: 0, total: 0 };
         }
-        throw new Error("Failed to fetch posts");
+
+        const totalPages = parseInt(res.headers.get("X-WP-TotalPages") || "1", 10);
+        const total = parseInt(res.headers.get("X-WP-Total") || "0", 10);
+        const posts = await res.json();
+        return { posts, totalPages, total };
+    } catch (err) {
+        console.error('[WP-API] getPostsWithPagination network error:', err);
+        return { posts: [], totalPages: 0, total: 0 };
     }
-
-    const totalPages = parseInt(res.headers.get("X-WP-TotalPages") || "1", 10);
-    const total = parseInt(res.headers.get("X-WP-Total") || "0", 10);
-    const posts = await res.json();
-
-    return { posts, totalPages, total };
 }
 
 export async function getPostBySlug(slug: string): Promise<WPPost | null> {
-    const res = await fetch(
-        `${WP_API_URL}/posts?slug=${slug}&_embed`,
-        { next: { revalidate: 60, tags: ["posts", `post-${slug.slice(0, 50)}`] } } // 1분 ISR 캐시 + 태그 길이 제한
-    );
-    if (!res.ok) throw new Error("Failed to fetch post");
-    const posts = await res.json();
-    return posts[0] || null;
+    try {
+        const res = await fetchWithRetry(
+            `${WP_API_URL}/posts?slug=${slug}&_embed`,
+            { next: { revalidate: 60, tags: ["posts", `post-${slug.slice(0, 50)}`] } }
+        );
+        if (!res.ok) return null;
+        const posts = await res.json();
+        return posts[0] || null;
+    } catch (err) {
+        console.error('[WP-API] getPostBySlug network error:', err);
+        return null;
+    }
 }
 
 export async function getCategories(): Promise<WPCategory[]> {
-    const res = await fetch(
-        `${WP_API_URL}/categories?per_page=50`,
-        { next: { revalidate: 300 } } // 5분 캐시
-    );
-    if (!res.ok) throw new Error("Failed to fetch categories");
-    return res.json();
+    try {
+        const res = await fetchWithRetry(
+            `${WP_API_URL}/categories?per_page=50`,
+            { next: { revalidate: 300 } }
+        );
+        if (!res.ok) return [];
+        return res.json();
+    } catch (err) {
+        console.error('[WP-API] getCategories network error:', err);
+        return [];
+    }
 }
 
 export async function getPostsByCategory(categoryId: number, perPage: number = 10): Promise<WPPost[]> {
