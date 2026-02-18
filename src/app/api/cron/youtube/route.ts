@@ -418,7 +418,7 @@ export async function GET(request: NextRequest) {
         const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://semicolonittech.com";
         // WP API returns slug in response, ensure interface has it or access simply
         const postAny = post as any;
-        const postSlug = postAny.slug || postAny.link.split("/").filter(Boolean).pop();
+        const postSlug = postAny.slug || (postAny.link || "").split("/").filter(Boolean).pop() || "";
         const publicUrl = `${siteUrl}/blog/${postSlug}`;
 
         // 구독자 알림 발송 (비동기)

@@ -7,6 +7,9 @@ import { getFeaturedImage } from "@/lib/images/unsplash";
 import { uploadImageFromUrl, getOrCreateTag, getRecentAutomationPosts, isDuplicateIdeally, checkAutomationDuplicate, createPostWithIndexing } from "@/lib/wp-server";
 import { googlePublishUrl } from "@/lib/google-indexing";
 import { classifyContent } from "@/lib/category-rules";
+import { getVerifiedSubscribers } from "@/lib/subscribers";
+import { sendNewPostNotification } from "@/lib/email";
+import { stripHtml } from "@/lib/wp-api";
 
 // Types
 interface WPPostTitle {
@@ -334,10 +337,28 @@ export async function GET(request: NextRequest) {
 
         if (!newPost) throw new Error("Failed to create post");
         const newPostAny = newPost as any;
+        const postSlug = newPostAny.slug || (newPostAny.link || "").split("/").filter(Boolean).pop() || "";
 
         console.log(`[Cron] ✅ Post created: ID ${newPost.id}`);
 
         // Google Indexing API handled inside createPostWithIndexing
+
+        // 구독자 알림 발송 (비동기)
+        const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://semicolonittech.com";
+        getVerifiedSubscribers().then(async (subscribers) => {
+            if (subscribers.length > 0) {
+                const excerptText = stripHtml(finalContent).slice(0, 200) + "...";
+                await sendNewPostNotification(subscribers, {
+                    title: koreanTitle,
+                    excerpt: excerptText,
+                    url: `${siteUrl}/blog/${postSlug}`,
+                    imageUrl: imageUrl || undefined,
+                });
+                console.log(`[Cron] 📧 Sent notification to ${subscribers.length} subscribers`);
+            }
+        }).catch(err => {
+            console.error("[Cron] Subscriber notification failed:", err);
+        });
 
         return NextResponse.json({
             success: true,

@@ -315,12 +315,12 @@ export async function GET(request: NextRequest) {
         getVerifiedSubscribers().then(async (subscribers) => {
             if (subscribers.length > 0) {
                 const excerptText = stripHtml(finalContent).slice(0, 200) + "...";
-                const slug = postAny.link.split("/").pop() || "";
-                const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://semicolon-blog.vercel.app";
+                const postSlug = postAny.slug || (postAny.link || "").split("/").filter(Boolean).pop() || "";
+                const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://semicolonittech.com";
                 await sendNewPostNotification(subscribers, {
                     title: generated.title,
                     excerpt: excerptText,
-                    url: `${siteUrl}/blog/${slug}`,
+                    url: `${siteUrl}/blog/${postSlug}`,
                 });
                 console.log(`[HowTo] 📧 Sent notification to ${subscribers.length} subscribers`);
             }
