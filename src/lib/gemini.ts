@@ -1,6 +1,44 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenerativeAI, GenerativeModel } from "@google/generative-ai";
 import { SearchResult } from "./search/interface";
 import { ensureHtml } from "@/lib/markdown-to-html";
+
+/**
+ * Gemini API 재시도 헬퍼 (503 Service Unavailable 등 일시적 오류 대응)
+ * 최대 3회 재시도, 지수 백오프 (5초 → 15초 → 45초)
+ */
+async function generateContentWithRetry(
+    model: GenerativeModel,
+    prompt: string,
+    maxRetries: number = 3
+): Promise<any> {
+    let lastError: Error | null = null;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            const result = await model.generateContent(prompt);
+            return result;
+        } catch (error: any) {
+            lastError = error;
+            const isRetryable =
+                error?.status === 503 ||
+                error?.status === 429 || // Rate limit
+                (error?.message || "").includes("503") ||
+                (error?.message || "").includes("Service Unavailable") ||
+                (error?.message || "").includes("high demand") ||
+                (error?.message || "").includes("429");
+
+            if (!isRetryable || attempt === maxRetries) {
+                throw error;
+            }
+
+            const waitMs = 5000 * Math.pow(3, attempt - 1); // 5s, 15s, 45s
+            console.warn(`[Gemini] ⚠️ Attempt ${attempt} failed (${error?.status || 'unknown'}). Retrying in ${waitMs / 1000}s...`);
+            await new Promise(resolve => setTimeout(resolve, waitMs));
+        }
+    }
+
+    throw lastError;
+}
 
 export interface BlogPostResult {
     title: string;
@@ -61,7 +99,7 @@ export async function generateBlogPost(topic: string, searchResults: SearchResul
   `;
 
     try {
-        const result = await model.generateContent(prompt);
+        const result = await generateContentWithRetry(model, prompt);
         const response = await result.response;
         let text = response.text();
 
@@ -178,7 +216,7 @@ export async function generateProductContent(productName: string, price: number,
     `;
 
     try {
-        const result = await model.generateContent(prompt);
+        const result = await generateContentWithRetry(model, prompt);
         const response = result.response;
         let text = response.text();
 
