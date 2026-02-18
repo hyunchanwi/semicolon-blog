@@ -160,12 +160,17 @@ export async function getCategories(): Promise<WPCategory[]> {
 }
 
 export async function getPostsByCategory(categoryId: number, perPage: number = 10): Promise<WPPost[]> {
-    const res = await fetch(
-        `${WP_API_URL}/posts?categories=${categoryId}&per_page=${perPage}&_embed`,
-        { next: { revalidate: 60 } } // 1분 ISR 캐시 (성능 최적화)
-    );
-    if (!res.ok) throw new Error("Failed to fetch posts by category");
-    return res.json();
+    try {
+        const res = await fetchWithRetry(
+            `${WP_API_URL}/posts?categories=${categoryId}&per_page=${perPage}&_embed`,
+            { next: { revalidate: 60 } }
+        );
+        if (!res.ok) return [];
+        return res.json();
+    } catch (err) {
+        console.error('[WP-API] getPostsByCategory network error:', err);
+        return [];
+    }
 }
 
 export async function getTags(): Promise<{ id: number; name: string }[]> {
@@ -178,37 +183,36 @@ export async function getTags(): Promise<{ id: number; name: string }[]> {
 }
 
 export async function getCategoryBySlug(slug: string): Promise<WPCategory | null> {
-    // Manual Alias for 'Other' Removed, as the actual slug is 'other'
-
-    // 1. Try exact match
-    const res = await fetch(
-        `${WP_API_URL}/categories?slug=${slug}`,
-        { next: { revalidate: 300 } }
-    );
-
-    if (res.ok) {
-        const categories = await res.json();
-        if (categories.length > 0) return categories[0];
-    }
-
-    // 2. If no exact match, try fetching all categories and finding one that "ends with" the slug
-    // This handles cases like 'en-technology' matching 'technology'
-    // or if the user provided slug is simple but WP has complex slugs.
-    const allRes = await fetch(
-        `${WP_API_URL}/categories?per_page=100`,
-        { next: { revalidate: 300 } }
-    );
-
-    if (allRes.ok) {
-        const allCategories: WPCategory[] = await allRes.json();
-        // Try to find a partial match (suffix) or case-insensitive match
-        const match = allCategories.find(c =>
-            c.slug === slug ||
-            c.slug.endsWith(`-${slug}`) ||
-            c.slug === `en-${slug}` ||
-            c.slug === `ko-${slug}`
+    try {
+        // 1. Try exact match
+        const res = await fetchWithRetry(
+            `${WP_API_URL}/categories?slug=${slug}`,
+            { next: { revalidate: 300 } }
         );
-        if (match) return match;
+
+        if (res.ok) {
+            const categories = await res.json();
+            if (categories.length > 0) return categories[0];
+        }
+
+        // 2. Fallback: fetch all and find partial match
+        const allRes = await fetchWithRetry(
+            `${WP_API_URL}/categories?per_page=100`,
+            { next: { revalidate: 300 } }
+        );
+
+        if (allRes.ok) {
+            const allCategories: WPCategory[] = await allRes.json();
+            const match = allCategories.find(c =>
+                c.slug === slug ||
+                c.slug.endsWith(`-${slug}`) ||
+                c.slug === `en-${slug}` ||
+                c.slug === `ko-${slug}`
+            );
+            if (match) return match;
+        }
+    } catch (err) {
+        console.error('[WP-API] getCategoryBySlug network error:', err);
     }
 
     return null;
