@@ -1,7 +1,7 @@
 
 import { WPPost } from "./wp-api";
 
-const WP_API_URL = process.env.WP_API_URL || "https://royalblue-anteater-980825.hostingersite.com/wp-json/wp/v2";
+const WP_API_URL = process.env.WP_API_URL || "https://wp.semicolonittech.com/wp-json/wp/v2";
 
 /**
  * Uploads an image from a URL to WordPress Media Library

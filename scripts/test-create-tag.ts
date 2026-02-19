@@ -4,7 +4,7 @@ import 'dotenv/config';
 async function testCreateTag() {
     // User: hyunchan09, Pass: Computer123!@
     const creds = Buffer.from("hyunchan09:Computer123!@").toString('base64');
-    const WP_API_URL = "https://royalblue-anteater-980825.hostingersite.com/wp-json/wp/v2";
+    const WP_API_URL = "https://wp.semicolonittech.com/wp-json/wp/v2";
 
     console.log(`Creating test tag at ${WP_API_URL}/tags...`);
 

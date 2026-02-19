@@ -2,7 +2,7 @@
 import { config } from "dotenv";
 config({ path: ".env.local" });
 
-const WP_API_URL = process.env.WP_API_URL || "https://royalblue-anteater-980825.hostingersite.com/wp-json/wp/v2";
+const WP_API_URL = process.env.WP_API_URL || "https://wp.semicolonittech.com/wp-json/wp/v2";
 const WP_AUTH = process.env.WP_AUTH;
 const POST_ID = 3297;
 const IMAGE_URL = "https://images.samsung.com/is/image/samsung/assets/us/computing/05122023/HD01-HeroKV_01_Win11_Pillar1_M-V2.jpg?$720_N_JPG$";

@@ -5,7 +5,7 @@ import path from 'path';
 // Load env vars
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
 
-const WP_API_URL = process.env.WP_API_URL || "https://royalblue-anteater-980825.hostingersite.com/wp-json/wp/v2";
+const WP_API_URL = process.env.WP_API_URL || "https://wp.semicolonittech.com/wp-json/wp/v2";
 const WP_AUTH = process.env.WP_AUTH;
 const UNSPLASH_ACCESS_KEY = process.env.UNSPLASH_ACCESS_KEY;
 

@@ -3,7 +3,7 @@
  * 새로운 분류 규칙에 따라 모든 글을 재분류합니다.
  */
 
-const WP_API_URL = "https://royalblue-anteater-980825.hostingersite.com/wp-json/wp/v2";
+const WP_API_URL = "https://wp.semicolonittech.com/wp-json/wp/v2";
 const WP_AUTH = (process.env.WP_AUTH || "").trim();
 
 const CATEGORY_IDS = {

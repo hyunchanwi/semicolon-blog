@@ -1,7 +1,7 @@
 /**
  * Delete specific posts
  */
-const WP_API_URL = "https://royalblue-anteater-980825.hostingersite.com/wp-json/wp/v2";
+const WP_API_URL = "https://wp.semicolonittech.com/wp-json/wp/v2";
 const WP_AUTH = (process.env.WP_AUTH || "").trim();
 
 const DELETE_IDS = [3000, 2996, 2987, 2985, 2979, 2836, 2818];

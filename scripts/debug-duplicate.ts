@@ -23,7 +23,7 @@ async function testDuplicateCheck() {
 
     // 2. Fetch a recent post to get a real automation_source_id (if possible)
     console.log("\nFetching recent posts to find a real ID...");
-    const WP_API_URL = process.env.WP_API_URL || "https://royalblue-anteater-980825.hostingersite.com/wp-json/wp/v2";
+    const WP_API_URL = process.env.WP_API_URL || "https://wp.semicolonittech.com/wp-json/wp/v2";
 
     try {
         const postsRes = await fetch(`${WP_API_URL}/posts?per_page=5&_fields=id,title,meta`, {

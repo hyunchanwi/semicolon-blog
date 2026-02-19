@@ -3,7 +3,7 @@
  * Headless WordPress 백엔드에서 데이터를 가져오는 클라이언트
  */
 
-const WP_API_URL = "https://royalblue-anteater-980825.hostingersite.com/wp-json/wp/v2";
+const WP_API_URL = "https://wp.semicolonittech.com/wp-json/wp/v2";
 
 // Types
 export interface WPPost {

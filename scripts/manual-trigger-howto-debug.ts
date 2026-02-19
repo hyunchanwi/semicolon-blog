@@ -10,7 +10,7 @@ import { ensureHtml } from "../src/lib/markdown-to-html";
 // --- Copied Logic from route.ts (Simplified for CLI) ---
 
 const CATEGORY_ID_HOWTO = 26;
-const WP_API_URL = process.env.WP_API_URL || "https://royalblue-anteater-980825.hostingersite.com/wp-json/wp/v2";
+const WP_API_URL = process.env.WP_API_URL || "https://wp.semicolonittech.com/wp-json/wp/v2";
 const WP_AUTH = (process.env.WP_AUTH || "").trim();
 
 const SEARCH_QUERIES = [

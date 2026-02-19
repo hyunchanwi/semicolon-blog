@@ -2,7 +2,7 @@
 import { config } from "dotenv";
 config({ path: ".env.local" });
 
-const WP_API_URL = process.env.WP_API_URL || "https://royalblue-anteater-980825.hostingersite.com/wp-json/wp/v2";
+const WP_API_URL = process.env.WP_API_URL || "https://wp.semicolonittech.com/wp-json/wp/v2";
 const PRODUCTS_CATEGORY_ID = 32;
 
 async function testExclusion() {

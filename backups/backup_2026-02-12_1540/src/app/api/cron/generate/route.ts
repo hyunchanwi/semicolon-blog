@@ -15,7 +15,7 @@ interface WPPostTitle {
 
 // Secure the endpoint
 const CRON_SECRET = process.env.CRON_SECRET;
-const WP_API_URL = process.env.WP_API_URL || "https://royalblue-anteater-980825.hostingersite.com/wp-json/wp/v2";
+const WP_API_URL = process.env.WP_API_URL || "https://wp.semicolonittech.com/wp-json/wp/v2";
 const WP_AUTH = (process.env.WP_AUTH || "").trim();
 
 // 분류 규칙 재정의 (classifyContent 사용)

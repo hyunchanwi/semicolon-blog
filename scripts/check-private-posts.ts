@@ -33,7 +33,7 @@ async function main() {
     // But we can check if a known private post title is in there.
 
     // Better yet, let's call the API directly here to see what the default behavior is
-    const WP_API_URL = process.env.WP_API_URL || "https://royalblue-anteater-980825.hostingersite.com/wp-json/wp/v2";
+    const WP_API_URL = process.env.WP_API_URL || "https://wp.semicolonittech.com/wp-json/wp/v2";
 
     console.log("Fetching with default params...");
     const res = await fetch(`${WP_API_URL}/posts?per_page=10&_fields=id,title,status`, {

@@ -1,7 +1,7 @@
 
 import { Agent, fetch } from 'undici';
 
-const url = "https://royalblue-anteater-980825.hostingersite.com/wp-json/wp/v2/posts?per_page=1";
+const url = "https://wp.semicolonittech.com/wp-json/wp/v2/posts?per_page=1";
 const agent = new Agent({ allowH2: false });
 
 async function test() {

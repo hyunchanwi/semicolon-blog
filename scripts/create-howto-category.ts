@@ -5,7 +5,7 @@ async function createHowToCategory() {
     // Hardcode credentials for reliability in this script
     // User: hyunchan09, Pass: Computer123!@
     const creds = Buffer.from("hyunchan09:Computer123!@").toString('base64');
-    const WP_API_URL = "https://royalblue-anteater-980825.hostingersite.com/wp-json/wp/v2";
+    const WP_API_URL = "https://wp.semicolonittech.com/wp-json/wp/v2";
 
     console.log(`Checking categories at ${WP_API_URL}/categories...`);
 

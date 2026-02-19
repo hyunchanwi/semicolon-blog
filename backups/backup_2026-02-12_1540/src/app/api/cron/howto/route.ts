@@ -17,7 +17,7 @@ export const dynamic = 'force-dynamic';
 
 const CATEGORY_ID_HOWTO = 26; // '사용법' ID (Confirmed)
 const CRON_SECRET = process.env.CRON_SECRET;
-const WP_API_URL = process.env.WP_API_URL || "https://royalblue-anteater-980825.hostingersite.com/wp-json/wp/v2";
+const WP_API_URL = process.env.WP_API_URL || "https://wp.semicolonittech.com/wp-json/wp/v2";
 const WP_AUTH = (process.env.WP_AUTH || "").trim();
 
 // Topic Candidates Fallback
