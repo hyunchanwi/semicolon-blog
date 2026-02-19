@@ -32,7 +32,7 @@ const CRON_SECRET = process.env.CRON_SECRET;
 const CATEGORY_ID_GADGET = 4;
 const CATEGORY_ID_TECH = 9;
 const CATEGORY_ID_AI = 15;
-const WP_API_URL = process.env.WP_API_URL || "https://royalblue-anteater-980825.hostingersite.com/wp-json/wp/v2";
+const WP_API_URL = process.env.WP_API_URL || "https://wp.semicolonittech.com/wp-json/wp/v2";
 const WP_AUTH = (process.env.WP_AUTH || "").trim();
 
 // Gemini로 블로그 글 생성

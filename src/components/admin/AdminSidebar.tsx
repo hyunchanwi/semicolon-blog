@@ -63,7 +63,7 @@ export const AdminSidebar = () => {
             {/* Footer */}
             <div className="absolute bottom-4 left-4 right-4 space-y-2">
                 <Link
-                    href="https://royalblue-anteater-980825.hostingersite.com/wp-admin"
+                    href="https://wp.semicolonittech.com/wp-admin"
                     target="_blank"
                     className="flex items-center gap-2 px-3 py-2 text-slate-400 hover:text-white transition-colors hover:bg-white/5 rounded-lg"
                 >

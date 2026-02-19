@@ -15,7 +15,7 @@ export async function RelatedPosts({ currentPostId, categoryId }: RelatedPostsPr
         // 카테고리별로 필터링이 필요하면 별도 fetch
         if (categoryId > 0) {
             const res = await fetch(
-                `https://royalblue-anteater-980825.hostingersite.com/wp-json/wp/v2/posts?per_page=10&categories=${categoryId}&_embed`,
+                `https://wp.semicolonittech.com/wp-json/wp/v2/posts?per_page=10&categories=${categoryId}&_embed`,
                 { next: { revalidate: 3600 } }
             );
             if (res.ok) {
