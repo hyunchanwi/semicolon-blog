@@ -2,6 +2,7 @@
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { Agent, fetch as undiciFetch } from "undici";
 import { googlePublishUrl } from '../src/lib/google-indexing';
 
 // Load environment variables
@@ -9,9 +10,13 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
 
-const WP_API_URL = process.env.WP_API_URL || "https://royalblue-anteater-980825.hostingersite.com/wp-json/wp/v2";
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://semicolonittech.com";
-const WP_AUTH = process.env.WP_AUTH;
+const http1Agent = new Agent({ allowH2: false });
+const wpFetch = (url: string, opts: any = {}) =>
+    undiciFetch(url, { ...opts, dispatcher: http1Agent }) as any;
+
+const WP_API_URL = "https://wp.semicolonittech.com/wp-json/wp/v2";
+const WP_AUTH = (process.env.WP_AUTH || "").trim();
+const SITE_URL = "https://semicolonittech.com";
 
 async function getAllPosts() {
     let allPosts: any[] = [];
@@ -19,8 +24,8 @@ async function getAllPosts() {
     const perPage = 50;
 
     while (true) {
-        console.log(`Fetching posts page ${page}...`);
-        const res = await fetch(`${WP_API_URL}/posts?per_page=${perPage}&page=${page}&_fields=id,slug,title,link,date`, {
+        console.log(`Fetching page ${page}...`);
+        const res = await wpFetch(`${WP_API_URL}/posts?per_page=100&page=${page}&status=publish`, {
             headers: {
                 'Authorization': `Basic ${WP_AUTH}`
             }

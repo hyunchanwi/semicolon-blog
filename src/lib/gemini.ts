@@ -67,7 +67,7 @@ export async function generateBlogPost(topic: string, searchResults: SearchResul
     1. Language: KOREAN (한국어) for the content, but ENGLISH for the URL Slug.
     2. Length: **공백 제외 2500자 내외**. 내용을 아주 상세하고 전문적으로 작성할 것. (Reduced from 3500 for optimization)
     3. Recency: **CRITICAL**: This is 2026. Do NOT include tools or news from 2023/2024 unless they have a major 2026 update. Verify that the features mentioned are the LATEST ones. "최신" means 2026, not 2023.
-    4. Title: 첫 줄에 한국어 제목을 <h2> 태그로 작성 (매력적이고 SEO 친화적으로)
+    4. Title: 첫 줄에 한국어 제목을 <h2> 태그로 작성. **클릭율(CTR)을 극대화**하는 매력적인 제목 (호기심 유발, 질문 형태, 강렬한 형용사, 숫자 활용). 단순한 "2026년 OO 분석" 지양. **단, 본문에 없는 내용을 지어내거나 과장하여 사실을 왜곡하는 '거짓 낚시'는 절대 금지.**
     5. Tone: Professional yet accessible (Apple Korea style), engaging, insightful. NO Markdown formatting (###, **). Use HTML only.
     6. Structure:
        - Introduction: Hook the reader, explain why this matters. 첫 100단어 내에 핵심 키워드 포함.
@@ -89,7 +89,7 @@ export async function generateBlogPost(topic: string, searchResults: SearchResul
        
        <!--SEO_META_START-->
        SEO_SLUG: [seo-friendly-english-url-slug-2026] (lowercase, hyphens only, MUST be in English, include year if relevant)
-       SEO_TITLE: [50-60자의 SEO 최적화 제목, 핵심 키워드 포함, 클릭 유도]
+       SEO_TITLE: [50-60자. "충격", "결국", "놀라운", "공개" 등 클릭을 유도하는 단어 포함 + 핵심 키워드]
        META_DESC: [150-160자의 메타 설명, 핵심 내용 요약, 검색 결과에 표시될 텍스트]
        FOCUS_KW: [가장 중요한 검색 키워드 1개, 예: "아이폰16 출시일" 또는 "ChatGPT 사용법"]
        <!--SEO_META_END-->

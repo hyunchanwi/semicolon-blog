@@ -11,7 +11,9 @@ function getClients() {
 
     if (!clientEmail || !privateKey) {
         console.error('🚨 [Google Indexing] CRITICAL: Missing environment variables!');
-        console.error('Required: GOOGLE_INDEXING_CLIENT_EMAIL, GOOGLE_INDEXING_PRIVATE_KEY');
+        console.error(`EMAIL present: ${!!clientEmail}`);
+        console.error(`KEY present: ${!!privateKey}`);
+        if (privateKey) console.error(`KEY starts with: ${privateKey.substring(0, 20)}...`);
         console.error('Current NODE_ENV:', process.env.NODE_ENV);
 
         // 개발 환경에서는 명확한 에러 throw

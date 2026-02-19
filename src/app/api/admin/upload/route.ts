@@ -6,7 +6,7 @@ const _http1Agent = new Agent({ allowH2: false });
 const wpFetch = (url: string, opts: any = {}) => undiciFetch(url, { ...opts, dispatcher: _http1Agent }) as any;
 
 const WP_API_URL = "https://wp.semicolonittech.com/wp-json/wp/v2";
-const WP_AUTH = Buffer.from("hyunchan09@gmail.com:wsbh 3VHB YwU9 EUap jLq5 QAWT").toString("base64");
+const WP_AUTH = (process.env.WP_AUTH || "").trim();
 
 export async function POST(request: NextRequest) {
     try {
@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
-        // 2. Parse FormData
+        // 2. Parse FormData from Request
         const formData = await request.formData();
         const file = formData.get("file") as File;
 
@@ -24,18 +24,23 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
         }
 
-        // 3. Prepare upload to WordPress
-        const wpFormData = new FormData();
-        wpFormData.append("file", file);
+        // 3. Prepare Buffer for direct binary upload
+        const arrayBuffer = await file.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        const filename = file.name || `upload-${Date.now()}.jpg`;
+        const contentType = file.type || "image/jpeg";
 
-        // 4. Upload to WordPress Media Library
+        // 4. Upload to WordPress Media Library (Direct Binary)
+        // FormData with undici often fails on Hostinger due to boundary/header issues.
+        // Direct binary upload with Content-Disposition is more reliable.
         const res = await wpFetch(`${WP_API_URL}/media`, {
             method: "POST",
             headers: {
                 "Authorization": `Basic ${WP_AUTH}`,
-                // Note: Do NOT set Content-Type header here, let fetch set it with boundary
+                "Content-Type": contentType,
+                "Content-Disposition": `attachment; filename="${filename}"`,
             },
-            body: wpFormData,
+            body: buffer,
         });
 
         if (!res.ok) {

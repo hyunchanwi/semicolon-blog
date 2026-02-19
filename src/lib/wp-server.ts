@@ -26,22 +26,22 @@ export async function uploadImageFromUrl(imageUrl: string, title: string, wpAuth
         const imgRes = await fetch(imageUrl);
         if (!imgRes.ok) throw new Error(`Failed to download image from ${imageUrl}: ${imgRes.status}`);
 
-        const blob = await imgRes.blob();
-        const extension = imageUrl.split('.').pop()?.split('?')[0] || 'jpg';
+        const arrayBuffer = await imgRes.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        const contentType = imgRes.headers.get('content-type') || 'image/jpeg';
+        const extension = contentType.split('/')[1] || 'jpg';
         const filename = `${title.replace(/[^a-z0-9]/gi, '-').toLowerCase()}-${Date.now()}.${extension}`;
 
-        // 2. Upload to WordPress
-        const formData = new FormData();
-        formData.append('file', blob, filename);
-        formData.append('title', title);
-
+        // 2. Upload to WordPress (Direct Binary)
         console.log(`[WP-Upload] Uploading to WordPress as ${filename}...`);
         const uploadRes = await wpFetch(`${WP_API_URL}/media`, {
             method: 'POST',
             headers: {
-                'Authorization': `Basic ${wpAuth}`
+                'Authorization': `Basic ${wpAuth}`,
+                'Content-Type': contentType,
+                'Content-Disposition': `attachment; filename="${filename}"`,
             },
-            body: formData
+            body: buffer
         });
 
         if (!uploadRes.ok) {
@@ -52,6 +52,25 @@ export async function uploadImageFromUrl(imageUrl: string, title: string, wpAuth
 
         const data = await uploadRes.json();
         console.log(`[WP-Upload] ✅ Success: ID ${data.id}`);
+
+        // 3. Update Title (Optional but recommended)
+        try {
+            await wpFetch(`${WP_API_URL}/media/${data.id}`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Basic ${wpAuth}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    title: title,
+                    alt_text: title,
+                    caption: title
+                })
+            });
+        } catch (updateErr) {
+            console.warn(`[WP-Upload] Failed to update image metadata (non-critical):`, updateErr);
+        }
+
         return {
             id: data.id,
             source_url: data.source_url
