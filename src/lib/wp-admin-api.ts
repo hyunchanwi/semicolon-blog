@@ -3,7 +3,7 @@
  * 관리자용 CRUD 작업 (글 생성/수정/삭제)
  */
 
-const WP_API_URL = "https://royalblue-anteater-980825.hostingersite.com/wp-json/wp/v2";
+const WP_API_URL = "https://wp.semicolonittech.com/wp-json/wp/v2";
 const WP_AUTH = Buffer.from("hyunchan09@gmail.com:wsbh 3VHB YwU9 EUap jLq5 QAWT").toString("base64");
 
 export interface CreatePostData {
