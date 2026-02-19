@@ -1,9 +1,19 @@
 import { WPPost } from "./wp-api";
 import { googlePublishUrl } from "./google-indexing";
 import { revalidatePath, revalidateTag } from "next/cache";
+// Force HTTP/1.1: Hostinger blocks HTTP/2 (PROTOCOL_ERROR) - same fix as wp-api.ts
+import { Agent, fetch as undiciFetch } from "undici";
+
+const http1Agent = new Agent({ allowH2: false });
+
+// Wrapper that forces HTTP/1.1 for all Hostinger API calls
+async function wpFetch(url: string, options: any = {}): Promise<any> {
+    return undiciFetch(url, { ...options, dispatcher: http1Agent }) as any;
+}
 
 const WP_API_URL = process.env.WP_API_URL || "https://wp.semicolonittech.com/wp-json/wp/v2";
 const WP_AUTH = (process.env.WP_AUTH || "").trim();
+
 
 /**
  * Uploads an image from a URL to WordPress Media Library
@@ -26,7 +36,7 @@ export async function uploadImageFromUrl(imageUrl: string, title: string, wpAuth
         formData.append('title', title);
 
         console.log(`[WP-Upload] Uploading to WordPress as ${filename}...`);
-        const uploadRes = await fetch(`${WP_API_URL}/media`, {
+        const uploadRes = await wpFetch(`${WP_API_URL}/media`, {
             method: 'POST',
             headers: {
                 'Authorization': `Basic ${wpAuth}`
@@ -58,7 +68,7 @@ export async function uploadImageFromUrl(imageUrl: string, title: string, wpAuth
 export async function getOrCreateCategory(name: string, wpAuth: string): Promise<number | null> {
     try {
         // 1. Check if category exists
-        const res = await fetch(`${WP_API_URL}/categories?search=${encodeURIComponent(name)}`, {
+        const res = await wpFetch(`${WP_API_URL}/categories?search=${encodeURIComponent(name)}`, {
             headers: { 'Authorization': `Basic ${wpAuth}` }
         });
 
@@ -69,7 +79,7 @@ export async function getOrCreateCategory(name: string, wpAuth: string): Promise
         }
 
         // 2. Create category
-        const createRes = await fetch(`${WP_API_URL}/categories`, {
+        const createRes = await wpFetch(`${WP_API_URL}/categories`, {
             method: 'POST',
             headers: {
                 'Authorization': `Basic ${wpAuth}`,
@@ -96,7 +106,7 @@ export async function getOrCreateCategory(name: string, wpAuth: string): Promise
 export async function getOrCreateTag(name: string, wpAuth: string): Promise<number | null> {
     try {
         // 1. Check if tag exists
-        const res = await fetch(`${WP_API_URL}/tags?search=${encodeURIComponent(name)}`, {
+        const res = await wpFetch(`${WP_API_URL}/tags?search=${encodeURIComponent(name)}`, {
             headers: { 'Authorization': `Basic ${wpAuth}` }
         });
 
@@ -107,7 +117,7 @@ export async function getOrCreateTag(name: string, wpAuth: string): Promise<numb
         }
 
         // 2. Create tag
-        const createRes = await fetch(`${WP_API_URL}/tags`, {
+        const createRes = await wpFetch(`${WP_API_URL}/tags`, {
             method: 'POST',
             headers: {
                 'Authorization': `Basic ${wpAuth}`,
@@ -133,7 +143,7 @@ export async function getOrCreateTag(name: string, wpAuth: string): Promise<numb
  */
 export async function getRecentAutomationPosts(wpAuth: string): Promise<WPPost[]> {
     try {
-        const res = await fetch(`${WP_API_URL}/posts?per_page=50&status=publish,draft,private`, {
+        const res = await wpFetch(`${WP_API_URL}/posts?per_page=50&status=publish,draft,private`, {
             headers: { 'Authorization': `Basic ${wpAuth}` },
             cache: 'no-store'
         });
@@ -177,7 +187,7 @@ export async function checkAutomationDuplicate(sourceId: string, wpAuth: string)
         // WordPress REST API doesn't support direct meta query without plugins usually, 
         // but we can search for it in the content OR use the custom meta field if the API allows.
         // For simplicity and robustness during transition, we use search + local filtering against recent automate posts.
-        const res = await fetch(`${WP_API_URL}/posts?search=${encodeURIComponent(sourceId)}&status=publish,draft,private`, {
+        const res = await wpFetch(`${WP_API_URL}/posts?search=${encodeURIComponent(sourceId)}&status=publish,draft,private`, {
             headers: { 'Authorization': `Basic ${wpAuth}` },
             cache: 'no-store'
         });
@@ -216,7 +226,7 @@ export async function createPostWithIndexing(
         console.log(`[WP-Create] Creating post: ${postData.title}`);
 
         // 1. WordPress에 글 생성
-        const res = await fetch(`${WP_API_URL}/posts`, {
+        const res = await wpFetch(`${WP_API_URL}/posts`, {
             method: 'POST',
             headers: {
                 'Authorization': `Basic ${wpAuth}`,
@@ -246,7 +256,7 @@ export async function createPostWithIndexing(
 
             if (indexed) {
                 try {
-                    await fetch(`${WP_API_URL}/posts/${post.id}`, {
+                    await wpFetch(`${WP_API_URL}/posts/${post.id}`, {
                         method: 'POST',
                         headers: {
                             'Authorization': `Basic ${wpAuth}`,

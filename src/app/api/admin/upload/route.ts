@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { isAdminEmail } from "@/lib/admin-auth";
+import { Agent, fetch as undiciFetch } from "undici";
+const _http1Agent = new Agent({ allowH2: false });
+const wpFetch = (url: string, opts: any = {}) => undiciFetch(url, { ...opts, dispatcher: _http1Agent }) as any;
 
 const WP_API_URL = "https://wp.semicolonittech.com/wp-json/wp/v2";
 const WP_AUTH = Buffer.from("hyunchan09@gmail.com:wsbh 3VHB YwU9 EUap jLq5 QAWT").toString("base64");
@@ -26,7 +29,7 @@ export async function POST(request: NextRequest) {
         wpFormData.append("file", file);
 
         // 4. Upload to WordPress Media Library
-        const res = await fetch(`${WP_API_URL}/media`, {
+        const res = await wpFetch(`${WP_API_URL}/media`, {
             method: "POST",
             headers: {
                 "Authorization": `Basic ${WP_AUTH}`,

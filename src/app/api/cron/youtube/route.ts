@@ -35,6 +35,11 @@ const CATEGORY_ID_AI = 15;
 const WP_API_URL = process.env.WP_API_URL || "https://wp.semicolonittech.com/wp-json/wp/v2";
 const WP_AUTH = (process.env.WP_AUTH || "").trim();
 
+// Force HTTP/1.1 for Hostinger (blocks HTTP/2)
+import { Agent, fetch as undiciFetch } from "undici";
+const _http1Agent = new Agent({ allowH2: false });
+const wpFetch = (url: string, opts: any = {}) => undiciFetch(url, { ...opts, dispatcher: _http1Agent }) as any;
+
 // Gemini로 블로그 글 생성
 async function generateFromVideo(video: YouTubeVideo): Promise<{ title: string; content: string; slug?: string }> {
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
@@ -206,7 +211,7 @@ async function getLastUsedChannelIndex(): Promise<number> {
         if (!youTubeTagId) return -1;
 
         // Fetch latest post with YouTube tag
-        const res = await fetch(`${WP_API_URL}/posts?tags=${youTubeTagId}&per_page=1&_embed`, {
+        const res = await wpFetch(`${WP_API_URL}/posts?tags=${youTubeTagId}&per_page=1&_embed`, {
             headers: { 'Authorization': `Basic ${WP_AUTH}` },
             cache: 'no-store'
         });
@@ -234,7 +239,7 @@ async function getLastUsedChannelIndex(): Promise<number> {
         if (lastPost.tags && lastPost.tags.length > 0) {
             // This is expensive (N requests), but okay for cron.
             // Better: fetch all tags involved.
-            const tagsRes = await fetch(`${WP_API_URL}/tags?include=${lastPost.tags.join(',')}`, {
+            const tagsRes = await wpFetch(`${WP_API_URL}/tags?include=${lastPost.tags.join(',')}`, {
                 headers: { 'Authorization': `Basic ${WP_AUTH}` }
             });
             if (tagsRes.ok) {

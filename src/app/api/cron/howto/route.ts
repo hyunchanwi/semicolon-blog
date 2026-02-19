@@ -20,6 +20,9 @@ const CATEGORY_ID_HOWTO = 26; // '사용법' ID (Confirmed)
 const CRON_SECRET = process.env.CRON_SECRET;
 const WP_API_URL = process.env.WP_API_URL || "https://wp.semicolonittech.com/wp-json/wp/v2";
 const WP_AUTH = (process.env.WP_AUTH || "").trim();
+import { Agent, fetch as undiciFetch } from "undici";
+const _http1Agent = new Agent({ allowH2: false });
+const wpFetch = (url: string, opts: any = {}) => undiciFetch(url, { ...opts, dispatcher: _http1Agent }) as any;
 
 // Topic Candidates Fallback
 const SEARCH_QUERIES = [
@@ -39,7 +42,7 @@ const SEARCH_QUERIES = [
 async function getRecentTopics(): Promise<string[]> {
     try {
         if (!WP_AUTH) return [];
-        const res = await fetch(`${WP_API_URL}/posts?per_page=30&_fields=title`, {
+        const res = await wpFetch(`${WP_API_URL}/posts?per_page=30&_fields=title`, {
             headers: { "Authorization": `Basic ${WP_AUTH}` },
             cache: 'no-store'
         });
