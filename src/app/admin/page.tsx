@@ -4,6 +4,8 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { getPosts, getCategories, stripHtml, decodeHtmlEntities } from "@/lib/wp-api";
 
+export const dynamic = 'force-dynamic'; // Always fetch fresh data (never use build-time cache)
+
 export default async function AdminDashboard() {
     const [posts, categories] = await Promise.all([
         getPosts(100),
@@ -25,7 +27,7 @@ export default async function AdminDashboard() {
                 </div>
                 <div className="flex gap-2">
                     <Button asChild variant="outline" className="rounded-xl">
-                        <Link href="https://royalblue-anteater-980825.hostingersite.com/wp-admin" target="_blank">
+                        <Link href="https://wp.semicolonittech.com/wp-admin" target="_blank">
                             <img src="https://s.w.org/style/images/about/WordPress-logotype-wmark.png" className="w-4 h-4 mr-2 opacity-50" alt="WP" />
                             WordPress 관리자
                         </Link>

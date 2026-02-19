@@ -10,6 +10,16 @@ const http1Agent = new Agent({ allowH2: false });
 
 const WP_API_URL = "https://wp.semicolonittech.com/wp-json/wp/v2";
 
+// WordPress stored media URLs as https://semicolonittech.com/wp-content/...
+// but that domain now points to Vercel. Rewrite to wp subdomain.
+function fixMediaUrl(url: string): string {
+    if (!url) return url;
+    return url.replace(
+        /https?:\/\/semicolonittech\.com\/wp-content\//g,
+        "https://wp.semicolonittech.com/wp-content/"
+    );
+}
+
 
 // Types
 export interface WPPost {
@@ -238,9 +248,18 @@ export async function getCategoryBySlug(slug: string): Promise<WPCategory | null
 // Helper: Featured Image URL 추출
 export function getFeaturedImageUrl(post: WPPost): string | null {
     if (post._embedded?.["wp:featuredmedia"]?.[0]) {
-        return post._embedded["wp:featuredmedia"][0].source_url;
+        return fixMediaUrl(post._embedded["wp:featuredmedia"][0].source_url);
     }
     return null;
+}
+
+// Export for use in components that render post content HTML
+export function fixWordPressMediaUrls(html: string): string {
+    if (!html) return html;
+    return html.replace(
+        /https?:\/\/semicolonittech\.com\/wp-content\//g,
+        "https://wp.semicolonittech.com/wp-content/"
+    );
 }
 
 // Helper: HTML 태그 제거
