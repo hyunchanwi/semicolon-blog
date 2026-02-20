@@ -158,24 +158,36 @@ export const RichEditor = ({ content, onChange }: RichEditorProps) => {
         input.onchange = async () => {
             if (input.files?.length) {
                 const file = input.files[0];
-                const formData = new FormData();
-                formData.append("file", file);
+
+                if (file.size > 10 * 1024 * 1024) {
+                    alert("⚠️ 10MB 이하의 이미지만 업로드 가능합니다.");
+                    return;
+                }
 
                 try {
-                    const res = await fetch("/api/admin/upload", {
+                    // Send raw binary to Edge Proxy to bypass Vercel Serverless Form parsing limits
+                    const res = await fetch("/api/proxy-wp-media", {
                         method: "POST",
-                        body: formData,
+                        headers: {
+                            "Content-Type": file.type || "image/jpeg",
+                            "X-Filename": encodeURIComponent(file.name),
+                        },
+                        body: file,
                     });
 
-                    if (!res.ok) throw new Error("Upload failed");
+                    if (!res.ok) {
+                        const errorText = await res.text().catch(() => "Unknown error");
+                        throw new Error(`Upload failed: HTTP ${res.status} - ${errorText}`);
+                    }
 
                     const data = await res.json();
-                    if (data.url) {
-                        editor?.chain().focus().setImage({ src: data.url }).run();
+                    if (data.source_url || data.url) {
+                        const finalUrl = data.source_url || data.url;
+                        editor?.chain().focus().setImage({ src: finalUrl }).run();
                     }
-                } catch (err) {
+                } catch (err: any) {
                     console.error("Upload failed", err);
-                    alert("이미지 업로드에 실패했습니다. (설정 확인 필요)");
+                    alert(`이미지 업로드 실패: ${err.message}`);
                 }
             }
         };
@@ -193,18 +205,31 @@ export const RichEditor = ({ content, onChange }: RichEditorProps) => {
                 const urls: string[] = [];
 
                 for (const file of files) {
-                    const formData = new FormData();
-                    formData.append("file", file);
+                    if (file.size > 10 * 1024 * 1024) {
+                        alert(`⚠️ 10MB 이하의 이미지만 업로드 가능합니다: ${file.name}`);
+                        continue;
+                    }
+
                     try {
-                        const res = await fetch("/api/admin/upload", {
+                        const res = await fetch("/api/proxy-wp-media", {
                             method: "POST",
-                            body: formData,
+                            headers: {
+                                "Content-Type": file.type || "image/jpeg",
+                                "X-Filename": encodeURIComponent(file.name),
+                            },
+                            body: file,
                         });
-                        if (!res.ok) throw new Error("Upload failed");
+
+                        if (!res.ok) {
+                            const errorText = await res.text().catch(() => "Unknown error");
+                            throw new Error(`Upload failed: HTTP ${res.status} - ${errorText}`);
+                        }
+
                         const data = await res.json();
-                        if (data.url) urls.push(data.url);
-                    } catch (err) {
+                        if (data.source_url || data.url) urls.push(data.source_url || data.url);
+                    } catch (err: any) {
                         console.error("Gallery upload failed", err);
+                        alert(`이미지 업로드 실패 (${file.name}): ${err.message}`);
                     }
                 }
 
@@ -236,19 +261,21 @@ export const RichEditor = ({ content, onChange }: RichEditorProps) => {
             if (input.files?.length) {
                 const file = input.files[0];
 
-                // Check file size (4.5MB limit due to Vercel Serverless limits)
-                if (file.size > 4.5 * 1024 * 1024) {
-                    alert("⚠️ Vercel 클라우드 서버의 업로드 용량 제한(최대 4.5MB)을 초과했습니다.\n\n💡 팁: 4.5MB 이상의 고화질 영상은 워드프레스 관리자 페이지(미디어)에 직접 올리신 뒤 링크를 복사해 오시거나, 유튜브에 업로드 후 '유튜브' 버튼으로 첨부해 주세요.");
+                // Restore 50MB limit since we now use Edge Middleware Streaming
+                if (file.size > 50 * 1024 * 1024) {
+                    alert("파일 크기가 50MB를 초과했습니다. 더 작은 해상도로 압축 후 올려주세요.\n\n💡 팁: 초고화질 대용량 영상은 유튜브에 업로드 후 '유튜브' 버튼으로 시청 링크를 첨부하세요.");
                     return;
                 }
 
-                const formData = new FormData();
-                formData.append("file", file);
-
                 try {
-                    const res = await fetch("/api/admin/upload", {
+                    // Send raw binary to Edge Proxy to bypass Vercel 4.5MB Serverless limits
+                    const res = await fetch("/api/proxy-wp-media", {
                         method: "POST",
-                        body: formData,
+                        headers: {
+                            "Content-Type": file.type || "application/octet-stream",
+                            "X-Filename": encodeURIComponent(file.name),
+                        },
+                        body: file,
                     });
 
                     if (!res.ok) {
@@ -257,15 +284,16 @@ export const RichEditor = ({ content, onChange }: RichEditorProps) => {
                     }
 
                     const data = await res.json();
-                    if (data.url) {
+                    if (data.source_url || data.url) {
+                        const finalUrl = data.source_url || data.url;
                         // Insert video HTML
                         editor?.chain().focus().insertContent(
-                            `<video src="${data.url}" controls style="max-width: 100%; border-radius: 8px; margin: 16px 0;"></video>`
+                            `<video src="${finalUrl}" controls style="max-width: 100%; border-radius: 8px; margin: 16px 0;"></video><p></p>`
                         ).run();
                     }
                 } catch (err: any) {
                     console.error("Video upload failed", err);
-                    alert(`영상 업로드에 실패했습니다.\n사유: ${err.message}\n\n💡 팁: 크기가 큰 영상은 유튜브에 업로드 후 '동영상' 버튼으로 링크를 첨부하세요.`);
+                    alert(`영상 업로드에 실패했습니다.\n사유: ${err.message}\n\n💡 팁: 크기가 큰 영상은 유튜브에 업로드 후 '유튜브' 버튼으로 링크를 첨부하세요.`);
                 }
             }
         };
