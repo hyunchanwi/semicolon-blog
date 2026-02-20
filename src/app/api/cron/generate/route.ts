@@ -252,7 +252,19 @@ export async function GET(request: NextRequest) {
                             </figure>`;
                         }
                     } catch (e) {
-                        console.error(`[Cron] Failed to replace image placeholder ${match}`, e);
+                        console.error(`[Cron] Tavily failed for ${query}, trying Unsplash fallback`, e);
+                        try {
+                            const unsplashImg = await getFeaturedImage(query);
+                            if (unsplashImg) {
+                                imgHtml = `
+                                <figure class="wp-block-image size-large">
+                                    <img src="${unsplashImg.url}" alt="${query}" style="border-radius:12px; box-shadow:0 8px 30px rgba(0,0,0,0.12); width:100%; height:auto;" />
+                                    <figcaption style="text-align:center; font-size:14px; color:#888; margin-top:8px;">${unsplashImg.credit}</figcaption>
+                                </figure>`;
+                            }
+                        } catch (unsplashErr) {
+                            console.error(`[Cron] Both Tavily and Unsplash failed for ${query}`, unsplashErr);
+                        }
                     }
 
                     return { match, imgHtml };

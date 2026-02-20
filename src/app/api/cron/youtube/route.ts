@@ -151,7 +151,19 @@ JSON 외에 어떤 텍스트도 포함하지 마세요.`;
                         </figure>`;
                     }
                 } catch (e) {
-                    console.error(`[YouTube] Failed to replace image placeholder ${match}`, e);
+                    console.error(`[YouTube] Tavily failed for ${query}, trying Unsplash fallback`, e);
+                    try {
+                        const unsplashImg = await getFeaturedImage(query);
+                        if (unsplashImg) {
+                            imgHtml = `
+                            <figure class="wp-block-image size-large">
+                                <img src="${unsplashImg.url}" alt="${query}" style="border-radius:12px; box-shadow:0 8px 30px rgba(0,0,0,0.12); width:100%; height:auto;" />
+                                <figcaption style="text-align:center; font-size:14px; color:#888; margin-top:8px;">${unsplashImg.credit}</figcaption>
+                            </figure>`;
+                        }
+                    } catch (unsplashErr) {
+                        console.error(`[YouTube] Both Tavily and Unsplash failed for ${query}`, unsplashErr);
+                    }
                 }
 
                 return { match, imgHtml };
@@ -369,19 +381,27 @@ export async function GET(request: NextRequest) {
         let featuredMediaId = 0;
         let imageUrl = "";
 
-        // Get Featured Image
+        // Get Featured Image (Try Unsplash, Fallback to YouTube Thumbnail)
+        let imageCredit = "";
         const imageResult = await getFeaturedImage(title);
+
         if (imageResult) {
             imageUrl = imageResult.url;
-            const uploaded = await uploadImageFromUrl(imageUrl, title, WP_AUTH);
-            if (uploaded) {
-                featuredMediaId = uploaded.id;
-            }
+            imageCredit = imageResult.credit;
+        } else {
+            imageUrl = `https://i.ytimg.com/vi/${targetVideo.id}/maxresdefault.jpg`;
+            imageCredit = `Source: YouTube (${selectedChannel.name})`;
+        }
 
+        const uploaded = await uploadImageFromUrl(imageUrl, title, WP_AUTH);
+        if (uploaded) {
+            featuredMediaId = uploaded.id;
+
+            // Only add the HTML block if upload succeeded, and use the original URL or source URL
             featuredImageHtml = `
             <figure class="wp-block-image size-large">
-                <img src="${imageUrl}" alt="${title}" style="border-radius:12px; box-shadow:0 8px 30px rgba(0,0,0,0.12); width:100%; height:auto;" />
-                <figcaption style="text-align:center; font-size:14px; color:#888; margin-top:8px;">${imageResult.credit}</figcaption>
+                <img src="${uploaded.source_url || imageUrl}" alt="${title}" style="border-radius:12px; box-shadow:0 8px 30px rgba(0,0,0,0.12); width:100%; height:auto;" />
+                <figcaption style="text-align:center; font-size:14px; color:#888; margin-top:8px;">${imageCredit}</figcaption>
             </figure>`;
         }
 
