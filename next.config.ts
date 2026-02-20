@@ -39,6 +39,12 @@ const nextConfig: NextConfig = {
     formats: ['image/avif', 'image/webp'],
   },
 
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '50mb',
+    },
+  },
+
   // 정적 자산 캐시 헤더
   async headers() {
     return [
