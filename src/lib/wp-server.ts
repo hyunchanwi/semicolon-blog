@@ -293,9 +293,10 @@ export async function createPostWithIndexing(
 
         // Trigger Cache Revalidation for automated posts
         try {
-            const { revalidateTag } = require("next/cache");
+            const { revalidateTag, revalidatePath } = require("next/cache");
             revalidateTag("posts");
-            // revalidateTag without arguments is deprecated but if using, we can just say revalidatePath as fallback.
+            revalidatePath("/");     // Clear main page cache
+            revalidatePath("/blog"); // Clear blog listing cache
         } catch (e) {
             console.log("[WP-Create] Revalidation failed (likely execution context issue):", e);
         }
