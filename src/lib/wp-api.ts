@@ -116,7 +116,7 @@ export async function getPosts(perPage: number = 10, revalidate: number = 300, f
     const fieldsParam = fields ? `&_fields=${fields}` : "";
     try {
         const res = await fetchWithRetry(
-            `${WP_API_URL}/posts?per_page=${perPage}&categories_exclude=${PRODUCTS_CATEGORY_ID}&_embed${fieldsParam}`,
+            `${WP_API_URL}/posts?per_page=${perPage}&categories_exclude=${PRODUCTS_CATEGORY_ID}&status=publish&_embed${fieldsParam}`,
             { next: { revalidate, tags: ["posts"] } }
         );
         if (!res.ok) {
@@ -135,7 +135,7 @@ export async function getPosts(perPage: number = 10, revalidate: number = 300, f
 export async function getPostsWithPagination(page: number = 1, perPage: number = 12): Promise<PaginatedPosts> {
     try {
         const res = await fetchWithRetry(
-            `${WP_API_URL}/posts?page=${page}&per_page=${perPage}&categories_exclude=${PRODUCTS_CATEGORY_ID}&_embed`,
+            `${WP_API_URL}/posts?page=${page}&per_page=${perPage}&categories_exclude=${PRODUCTS_CATEGORY_ID}&status=publish&_embed`,
             { next: { revalidate: 300, tags: ["posts"] } }
         );
 
