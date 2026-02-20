@@ -236,9 +236,9 @@ export const RichEditor = ({ content, onChange }: RichEditorProps) => {
             if (input.files?.length) {
                 const file = input.files[0];
 
-                // Check file size (50MB limit)
-                if (file.size > 50 * 1024 * 1024) {
-                    alert("파일 크기가 너무 큽니다. 50MB 이하의 파일을 올려주세요.\n\n💡 팁: 유튜브에 업로드 후 '동영상' 버튼으로 링크를 첨부하세요.");
+                // Check file size (4.5MB limit due to Vercel Serverless limits)
+                if (file.size > 4.5 * 1024 * 1024) {
+                    alert("⚠️ Vercel 클라우드 서버의 업로드 용량 제한(최대 4.5MB)을 초과했습니다.\n\n💡 팁: 4.5MB 이상의 고화질 영상은 워드프레스 관리자 페이지(미디어)에 직접 올리신 뒤 링크를 복사해 오시거나, 유튜브에 업로드 후 '유튜브' 버튼으로 첨부해 주세요.");
                     return;
                 }
 
