@@ -26,7 +26,14 @@ export async function POST(request: NextRequest) {
         // 3. Prepare Buffer for direct binary upload
         const arrayBuffer = await file.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
-        const filename = file.name || `upload-${Date.now()}.jpg`;
+        // Ensure filename is safe for HTTP headers (ASCII only)
+        const originalName = file.name || `upload-${Date.now()}.jpg`;
+        const extension = originalName.includes('.') ? originalName.split('.').pop() : 'jpg';
+        const sanitizedName = originalName.replace(/[^a-zA-Z0-9.\-_]/g, '');
+        const filename = sanitizedName.length > extension!.length
+            ? sanitizedName
+            : `img-${Date.now()}.${extension}`;
+
         const contentType = file.type || "image/jpeg";
 
         // 4. Upload to WordPress Media Library using native Node.js https to bypass Vercel undici/fetch HTTP2 issues
