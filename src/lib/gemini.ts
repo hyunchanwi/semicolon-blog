@@ -6,7 +6,7 @@ import { ensureHtml } from "@/lib/markdown-to-html";
  * Gemini API 재시도 헬퍼 (503 Service Unavailable 등 일시적 오류 대응)
  * 최대 3회 재시도, 지수 백오프 (5초 → 15초 → 45초)
  */
-async function generateContentWithRetry(
+export async function generateContentWithRetry(
     model: GenerativeModel,
     prompt: string,
     maxRetries: number = 3

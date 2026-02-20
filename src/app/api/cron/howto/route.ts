@@ -1,6 +1,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { generateContentWithRetry } from "@/lib/gemini";
 import { TavilySearchProvider } from "@/lib/search/tavily";
 import { getFeaturedImage } from "@/lib/images/unsplash";
 import { uploadImageFromUrl, getOrCreateTag, getRecentAutomationPosts, isDuplicateIdeally, createPostWithIndexing } from "@/lib/wp-server";
@@ -18,32 +19,31 @@ export const dynamic = 'force-dynamic';
 
 const CATEGORY_ID_HOWTO = 26; // '사용법' ID (Confirmed)
 const CRON_SECRET = process.env.CRON_SECRET;
-const WP_API_URL = process.env.WP_API_URL || "https://wp.semicolonittech.com/wp-json/wp/v2";
-const WP_AUTH = (process.env.WP_AUTH || "").trim();
 import { Agent, fetch as undiciFetch } from "undici";
 const _http1Agent = new Agent({ allowH2: false });
 const wpFetch = (url: string, opts: any = {}) => undiciFetch(url, { ...opts, dispatcher: _http1Agent }) as any;
 
 // Topic Candidates Fallback
 const SEARCH_QUERIES = [
-    "최신 아이폰 꿀팁 사용법",
-    "갤럭시 숨겨진 기능 사용법",
-    "유용한 AI 도구 사용법 가이드",
-    "맥북 생산성 향상 팁",
-    "윈도우11 필수 설정 가이드",
-    "노션 사용법 기초",
-    "굿노트 다이어리 꾸미기 팁",
-    "ChatGPT 활용 팁",
-    "유튜브 프리미엄 활용법",
-    "인스타그램 릴스 만드는 법"
+    "아이폰과 갤럭시 파일 전송 방법",
+    "계정 보안을 위한 2단계 인증(2FA) 설정 가이드",
+    "최신 아이폰 필수 설정 및 꿀팁",
+    "갤럭시 감춰진 유용한 기능 10가지",
+    "유용한 AI 웹사이트 및 도구 사용법",
+    "맥북 초보자를 위한 생산성 필수 단축키",
+    "윈도우11 필수 최적화 설정 가이드",
+    "노션(Notion) 완벽 기초 활용법",
+    "ChatGPT 실무 활용 및 프롬프트 팁",
+    "아이패드 굿노트 다이어리 정리 팁"
 ];
 
 // 0. 최근 작성한 주제 가져오기
-async function getRecentTopics(): Promise<string[]> {
+async function getRecentTopics(wpAuth: string): Promise<string[]> {
     try {
-        if (!WP_AUTH) return [];
-        const res = await wpFetch(`${WP_API_URL}/posts?per_page=30&_fields=title`, {
-            headers: { "Authorization": `Basic ${WP_AUTH}` },
+        if (!wpAuth) return [];
+        const wpApiUrl = process.env.WP_API_URL || "https://wp.semicolonittech.com/wp-json/wp/v2";
+        const res = await wpFetch(`${wpApiUrl}/posts?per_page=30&_fields=title`, {
+            headers: { "Authorization": `Basic ${wpAuth}` },
             cache: 'no-store'
         });
         if (!res.ok) return [];
@@ -118,31 +118,35 @@ async function generateHowToContent(topic: any): Promise<{ title: string; conten
     const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
 
     const prompt = `
-당신은 'IT 강사'입니다. 현재 연도는 **2026년**입니다. 아래 주제에 대해 초보자용 **최신 사용법 가이드** 포스팅을 작성해주세요.
+당신은 '매우 친절하고 꼼꼼한 IT 전문가'입니다. 현재 연도는 **2026년**입니다. 아래 주제에 대해 초보자도 100% 따라할 수 있는 **매우 상세하고 정확한 사용법 가이드**를 작성해주세요.
 
 ## 주제 정보
 - 제목: ${topic.title}
 - 참고 내용: ${topic.content}
 
-## 작성 원칙
-1. **분량**: **공백 제외 2500자 내외** (핵심 내용 위주로 알차게).
-2. **최신성**: 반드시 **2026년의 최신 기술 트렌드**를 반영하며, 과거 연도(2023, 2024)가 포함되지 않도록 주의하세요.
-3. **구조**: 제목, 서론, 단계별 절차, 표(비교), 결론.
-4. **이미지**: 설명 중간에 **[IMAGE: (영어 검색어)]**를 딱 **1개**만 삽입하세요.
-5. **어조**: 친절한 경어체.
-6. **형식**: Markdown 문법(###, **, - 등)을 절대 사용하지 마세요. 오직 HTML 태그(<h3>, <p>, <ul>, <li>, <strong>)만 사용하세요.
+## 작성 원칙 (매우 중요)
+1. **분량**: 핵심을 아주 상세하게 풀어내어 **공백 제외 3000자 이상** 작성하세요.
+2. **최신성과 정확도**: 반드시 **2026년 최신 버전** 기준의 가장 정확한 기술 정보만 제공하세요. 작은 설정이나 버튼 이름 하나라도 틀리면 안 됩니다. 과거 연도(2023, 2024 등) 언급 금지.
+3. **구조**: 
+   - 매력적이고 친절한 서론 (독자의 문제 공감)
+   - Step 1, Step 2 형태의 **구체적인 단계별 절차 (가장 중요)**
+   - 장단점 비교 표 또는 꿀팁 요약 표
+   - 따뜻한 맺음말
+4. **이미지 (풍성하게)**: 글의 이해를 돕기 위해 단계별 설명 중간중간에 **[IMAGE: (영어 검색어)]**를 총 **3개~5개** 정도 적절히 배치해주세요. (예: [IMAGE: iPhone airdrop settings interface], [IMAGE: Galaxy quick share screen])
+5. **어조**: 읽는 사람이 기분 좋아지는 매우 친절하고 상냥한 경어체 (~습니다, ~해요, ~해볼까요?).
+6. **형식**: Markdown 문법(###, **, - 등)을 절대 사용하지 마세요. 오직 깔끔한 HTML 태그(<h2>, <h3>, <p>, <ul>, <ol>, <li>, <strong>, <table>)만 사용하세요.
 7. **Slug**: 주제와 관련된 **영어 URL Slug**를 하나 생성하세요. (소문자, 하이픈, 2026 포함)
 
 ## 출력 형식 (JSON Only)
 {
-  "title": "블로그 제목",
+  "title": "블로그 제목 (검색 최적화 및 시선을 끄는 제목)",
   "content": "HTML 코드 (<body> 내부 내용만)",
   "slug": "english-slug-example-2026"
 }
-JSON 외에 어떤 텍스트도 포함하지 마세요.
+JSON 외에 어떤 텍스트도 덧붙이지 마세요.
 `;
 
-    const result = await model.generateContent(prompt);
+    const result = await generateContentWithRetry(model, prompt);
     const response = await result.response;
     let text = response.text().trim();
 
@@ -221,6 +225,8 @@ async function processImages(content: string, wpAuth: string): Promise<string> {
 // Local publishPost removed. Using createPostWithIndexing from lib/wp-server.ts
 
 export async function GET(request: NextRequest) {
+    const wpAuth = (process.env.WP_AUTH || "").trim();
+
     const authHeader = request.headers.get("authorization");
     if (authHeader !== `Bearer ${CRON_SECRET}`) {
         // console.log("Unauthorized"); // Allow manual trigger for now with query param check? 
@@ -239,10 +245,10 @@ export async function GET(request: NextRequest) {
         await new Promise(resolve => setTimeout(resolve, jitter));
 
         // 0. Pre-fetch existing posts for batch duplicate checking
-        const existingPosts = await getRecentAutomationPosts(WP_AUTH);
+        const existingPosts = await getRecentAutomationPosts(wpAuth);
 
         // 0.5 최근 주제 가져오기
-        const recentTopics = await getRecentTopics();
+        const recentTopics = await getRecentTopics(wpAuth);
 
         // 1. Topic
         const topic = await getHowToTopic(recentTopics, existingPosts, forceTopic || undefined);
@@ -255,7 +261,7 @@ export async function GET(request: NextRequest) {
         const generated = await generateHowToContent(topic);
 
         // 3. Images
-        const finalContent = await processImages(generated.content, WP_AUTH);
+        const finalContent = await processImages(generated.content, wpAuth);
         console.log(`[HowTo] ✅ Generated: ${generated.title}`);
 
         // [Race Condition Check] Final check right before publishing
@@ -266,7 +272,7 @@ export async function GET(request: NextRequest) {
         }
 
         // 4. Publish
-        const tagId = await getOrCreateTag("사용법", WP_AUTH);
+        const tagId = await getOrCreateTag("사용법", wpAuth);
         const tags = tagId ? [tagId] : [];
 
         // Generate Featured Image (Moved from removed publishPost)
@@ -288,7 +294,7 @@ export async function GET(request: NextRequest) {
         let mediaId = 0;
 
         if (featuredImg) {
-            const uploaded = await uploadImageFromUrl(featuredImg.url, generated.title, WP_AUTH);
+            const uploaded = await uploadImageFromUrl(featuredImg.url, generated.title, wpAuth);
             if (uploaded) mediaId = uploaded.id;
         }
 
@@ -303,7 +309,7 @@ export async function GET(request: NextRequest) {
             meta: {
                 automation_source_id: `howto_${topic.title}`
             }
-        }, WP_AUTH);
+        }, wpAuth);
 
         if (!post) throw new Error("Failed to create post");
 

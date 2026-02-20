@@ -2,8 +2,8 @@ name: How-to Guide Cron
 
 on:
   schedule:
-    # KST 15:00 = UTC 06:00
-    # - cron: '0 6 * * *' (Disabled by user request)
+    # KST 11:00 = UTC 02:00
+    - cron: '0 2 * * *'
   workflow_dispatch:
 
 jobs:
