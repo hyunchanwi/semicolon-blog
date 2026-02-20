@@ -251,7 +251,10 @@ export const RichEditor = ({ content, onChange }: RichEditorProps) => {
                         body: formData,
                     });
 
-                    if (!res.ok) throw new Error("Upload failed");
+                    if (!res.ok) {
+                        const errorText = await res.text().catch(() => "Unknown error");
+                        throw new Error(`Upload failed: HTTP ${res.status} - ${errorText}`);
+                    }
 
                     const data = await res.json();
                     if (data.url) {
@@ -260,9 +263,9 @@ export const RichEditor = ({ content, onChange }: RichEditorProps) => {
                             `<video src="${data.url}" controls style="max-width: 100%; border-radius: 8px; margin: 16px 0;"></video>`
                         ).run();
                     }
-                } catch (err) {
+                } catch (err: any) {
                     console.error("Video upload failed", err);
-                    alert("영상 업로드에 실패했습니다.\n\n💡 팁: 유튜브에 업로드 후 '동영상' 버튼으로 링크를 첨부하세요.");
+                    alert(`영상 업로드에 실패했습니다.\n사유: ${err.message}\n\n💡 팁: 크기가 큰 영상은 유튜브에 업로드 후 '동영상' 버튼으로 링크를 첨부하세요.`);
                 }
             }
         };
