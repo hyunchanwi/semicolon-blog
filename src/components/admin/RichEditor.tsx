@@ -11,6 +11,37 @@ import Underline from "@tiptap/extension-underline";
 import { TextStyle } from "@tiptap/extension-text-style";
 import { Color } from "@tiptap/extension-color";
 import { FontFamily } from "@tiptap/extension-font-family";
+import { Node, mergeAttributes } from "@tiptap/core";
+
+const Video = Node.create({
+    name: 'video',
+    group: 'block',
+    selectable: true,
+    draggable: true,
+    addAttributes() {
+        return {
+            src: {
+                default: null,
+            },
+            controls: {
+                default: true,
+            },
+            style: {
+                default: 'max-width: 100%; border-radius: 8px; margin: 16px 0;',
+            },
+        }
+    },
+    parseHTML() {
+        return [
+            {
+                tag: 'video',
+            },
+        ]
+    },
+    renderHTML({ HTMLAttributes }) {
+        return ['video', mergeAttributes(HTMLAttributes), ['source', { src: HTMLAttributes.src }]]
+    },
+})
 
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -62,6 +93,7 @@ export const RichEditor = ({ content, onChange }: RichEditorProps) => {
             TextStyle,
             Color,
             FontFamily,
+            Video,
         ],
         content,
         editorProps: {
@@ -122,7 +154,7 @@ export const RichEditor = ({ content, onChange }: RichEditorProps) => {
     const uploadImage = useCallback(async () => {
         const input = document.createElement("input");
         input.type = "file";
-        input.accept = "image/*";
+        input.accept = "image/jpeg,image/png,image/gif,image/webp";
         input.onchange = async () => {
             if (input.files?.length) {
                 const file = input.files[0];
@@ -225,10 +257,7 @@ export const RichEditor = ({ content, onChange }: RichEditorProps) => {
                     if (data.url) {
                         // Insert video HTML
                         editor?.chain().focus().insertContent(
-                            `<video controls style="max-width: 100%; border-radius: 8px; margin: 16px 0;">
-                                <source src="${data.url}" type="${file.type}">
-                                브라우저가 비디오를 지원하지 않습니다.
-                            </video>`
+                            `<video src="${data.url}" controls style="max-width: 100%; border-radius: 8px; margin: 16px 0;"></video>`
                         ).run();
                     }
                 } catch (err) {
