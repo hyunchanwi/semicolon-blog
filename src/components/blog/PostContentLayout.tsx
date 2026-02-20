@@ -56,6 +56,8 @@ export function PostContentLayout({ content, toc, hasToc }: PostContentLayoutPro
                         [&>h4]:text-xl [&>h4]:mt-8 [&>h4]:mb-3
                         [&_iframe]:!w-full [&_iframe]:!max-w-full [&_video]:!w-full [&_video]:!max-w-full
                         [&_table]:block [&_table]:overflow-x-auto [&_table]:whitespace-nowrap
+                        /* Hide empty paragraphs caused by copy-pasting from AI tools */
+                        [&>p:empty]:hidden [&>p:has(br:only-child)]:hidden
                         break-words overflow-hidden
                     "
                 >
