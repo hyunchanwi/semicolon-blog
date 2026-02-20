@@ -3,12 +3,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { isAdminEmail } from "@/lib/admin-auth";
 import { generateProductContent } from "@/lib/gemini";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+
 
 export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
     try {
-        const session = await getServerSession();
+        const session = await getServerSession(authOptions);
         // Allow public access for now or strictly check admin? 
         // Let's strictly check admin as it consumes API quota.
         if (!session || !isAdminEmail(session.user?.email)) {

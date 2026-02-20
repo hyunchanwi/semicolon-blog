@@ -6,11 +6,12 @@ import { stripHtml } from "@/lib/wp-api";
 import { generateSummary } from "@/lib/summary";
 import { isAdminEmail } from "@/lib/admin-auth";
 import { googlePublishUrl } from "@/lib/google-indexing";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 
 export async function POST(request: NextRequest) {
     try {
         // Check if user is admin
-        const session = await getServerSession();
+        const session = await getServerSession(authOptions);
         if (!session || !isAdminEmail(session.user?.email)) {
             return NextResponse.json(
                 { error: "Unauthorized" },

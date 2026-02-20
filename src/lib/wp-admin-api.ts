@@ -6,6 +6,10 @@
 const WP_API_URL = "https://wp.semicolonittech.com/wp-json/wp/v2";
 const WP_AUTH = (process.env.WP_AUTH || "").trim();
 
+import { Agent, fetch as undiciFetch } from 'undici';
+const http1Agent = new Agent({ allowH2: false });
+const wpFetch = (url: string, opts: any = {}) => undiciFetch(url, { ...opts, dispatcher: http1Agent }) as any;
+
 export interface CreatePostData {
     title: string;
     content: string;
@@ -27,18 +31,25 @@ export interface UpdatePostData extends Partial<CreatePostData> {
 // 글 생성
 export async function createPost(data: CreatePostData) {
     // Rank Math SEO 필드를 meta에 병합
-    const postData = {
-        ...data,
-        meta: {
-            ...data.meta,
-            // Rank Math SEO 필드
-            ...(data.rank_math_title && { rank_math_title: data.rank_math_title }),
-            ...(data.rank_math_description && { rank_math_description: data.rank_math_description }),
-            ...(data.rank_math_focus_keyword && { rank_math_focus_keyword: data.rank_math_focus_keyword }),
-        },
+    const metaObj = {
+        ...data.meta,
+        ...(data.rank_math_title && { rank_math_title: data.rank_math_title }),
+        ...(data.rank_math_description && { rank_math_description: data.rank_math_description }),
+        ...(data.rank_math_focus_keyword && { rank_math_focus_keyword: data.rank_math_focus_keyword }),
     };
 
-    const res = await fetch(`${WP_API_URL}/posts`, {
+    const postData: any = { ...data };
+    delete postData.rank_math_title;
+    delete postData.rank_math_description;
+    delete postData.rank_math_focus_keyword;
+
+    if (Object.keys(metaObj).length > 0) {
+        postData.meta = metaObj;
+    } else {
+        delete postData.meta;
+    }
+
+    const res = await wpFetch(`${WP_API_URL}/posts`, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",

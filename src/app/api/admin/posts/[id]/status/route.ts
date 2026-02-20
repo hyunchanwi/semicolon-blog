@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { updatePost } from "@/lib/wp-admin-api";
 import { isAdminEmail } from "@/lib/admin-auth";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+
 
 // status: 'publish' | 'draft' | 'private'
 export async function PUT(
@@ -10,7 +12,7 @@ export async function PUT(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const session = await getServerSession();
+        const session = await getServerSession(authOptions);
         if (!session || !isAdminEmail(session.user?.email)) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }

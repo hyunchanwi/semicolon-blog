@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { isAdminEmail } from "@/lib/admin-auth";
 import * as cheerio from "cheerio";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +14,7 @@ export async function POST(request: NextRequest) {
         // But let's keep it safe.
         // Actually, let's allow this to be public for now or same admin check?
         // Admin check is safer.
-        const session = await getServerSession();
+        const session = await getServerSession(authOptions);
         if (!session || !isAdminEmail(session.user?.email)) {
             return NextResponse.json(
                 { error: "Unauthorized" },

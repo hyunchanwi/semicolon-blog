@@ -5,6 +5,8 @@ import { updatePost, deletePost } from "@/lib/wp-admin-api";
 import { generateSummary } from "@/lib/summary";
 import { isAdminEmail } from "@/lib/admin-auth";
 import { googlePublishUrl } from "@/lib/google-indexing";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+
 
 // Update post
 export async function PUT(
@@ -12,7 +14,7 @@ export async function PUT(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const session = await getServerSession();
+        const session = await getServerSession(authOptions);
         if (!session || !isAdminEmail(session.user?.email)) {
             return NextResponse.json(
                 { error: "Unauthorized" },
@@ -78,7 +80,7 @@ export async function DELETE(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const session = await getServerSession();
+        const session = await getServerSession(authOptions);
         if (!session || !isAdminEmail(session.user?.email)) {
             return NextResponse.json(
                 { error: "Unauthorized" },
@@ -113,7 +115,7 @@ export async function PATCH(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const session = await getServerSession();
+        const session = await getServerSession(authOptions);
         if (!session || !isAdminEmail(session.user?.email)) {
             return NextResponse.json(
                 { error: "Unauthorized" },

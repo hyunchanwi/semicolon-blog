@@ -4,11 +4,13 @@ import { TavilySearchProvider } from "@/lib/search/tavily";
 import { generateBlogPost } from "@/lib/gemini";
 import { searchYouTubeVideos, YouTubeVideo, generateRecommendedVideosHtml } from "@/lib/youtube";
 import { isAdminEmail } from "@/lib/admin-auth";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+
 
 export async function POST(request: NextRequest) {
     try {
         // 1. Auth Check
-        const session = await getServerSession();
+        const session = await getServerSession(authOptions);
         if (!session || !isAdminEmail(session.user?.email)) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
