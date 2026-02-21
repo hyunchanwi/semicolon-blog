@@ -80,24 +80,17 @@ const PRODUCTS_CATEGORY_ID = 32;
 const WP_AUTH = (process.env.WP_AUTH || "").trim();
 
 // Retry helper: retries on network errors (ECONNRESET, socket errors) with exponential backoff
-async function fetchWithRetry(url: string, options: RequestInit & { next?: NextFetchRequestConfig, forceHttp1?: boolean } = {}, retries = 3): Promise<Response> {
-    const isWriteMethod = options.method && ['POST', 'PUT', 'DELETE', 'PATCH'].includes(options.method.toUpperCase());
-    const useHttp1 = options.forceHttp1 || isWriteMethod;
-
+async function fetchWithRetry(url: string, options: RequestInit = {}, retries = 3): Promise<Response> {
     for (let attempt = 1; attempt <= retries; attempt++) {
         try {
-            if (useHttp1) {
-                // Use undici fetch with HTTP/1.1 agent — Hostinger blocks HTTP/2 (PROTOCOL_ERROR)
-                const res = await undiciFetch(url, {
-                    ...options,
-                    // @ts-ignore — undici dispatcher option
-                    dispatcher: http1Agent,
-                } as any);
-                return res as unknown as Response;
-            } else {
-                // Use native Next.js fetch to support caching, ISR, and request memoization
-                return await fetch(url, options);
-            }
+            // ALWAYS use undici fetch with HTTP/1.1 agent — Hostinger blocks HTTP/2 (PROTOCOL_ERROR)
+            // This prevents Vercel build failures
+            const res = await undiciFetch(url, {
+                ...options,
+                // @ts-ignore — undici dispatcher option
+                dispatcher: http1Agent,
+            } as any);
+            return res as unknown as Response;
         } catch (err: any) {
             const isNetworkError =
                 err?.code === 'ECONNRESET' ||
@@ -119,50 +112,63 @@ async function fetchWithRetry(url: string, options: RequestInit & { next?: NextF
 
 type NextFetchRequestConfig = { revalidate?: number; tags?: string[] };
 
+import { unstable_cache } from 'next/cache';
 
 export async function getPosts(perPage: number = 10, revalidate: number = 300, fields: string = ""): Promise<WPPost[]> {
     const fieldsParam = fields ? `&_fields=${fields}` : "";
-    try {
-        const res = await fetchWithRetry(
-            `${WP_API_URL}/posts?per_page=${perPage}&categories_exclude=${PRODUCTS_CATEGORY_ID}&status=publish&_embed${fieldsParam}`,
-            { next: { revalidate, tags: ["posts"] } }
-        );
-        if (!res.ok) {
-            const errorText = await res.text().catch(() => "No error body");
-            console.error(`[WP-API] Failed to fetch posts: ${res.status} ${res.statusText}`, errorText);
+    const fetchPosts = async () => {
+        try {
+            const res = await fetchWithRetry(
+                `${WP_API_URL}/posts?per_page=${perPage}&categories_exclude=${PRODUCTS_CATEGORY_ID}&status=publish&_embed${fieldsParam}`
+            );
+            if (!res.ok) {
+                const errorText = await res.text().catch(() => "No error body");
+                console.error(`[WP-API] Failed to fetch posts: ${res.status} ${res.statusText}`, errorText);
+                return [];
+            }
+            const posts: WPPost[] = await res.json();
+            return posts.filter(post => !post.categories.includes(PRODUCTS_CATEGORY_ID));
+        } catch (err) {
+            console.error('[WP-API] getPosts network error:', err);
             return [];
         }
-        const posts: WPPost[] = await res.json();
-        return posts.filter(post => !post.categories.includes(PRODUCTS_CATEGORY_ID));
-    } catch (err) {
-        console.error('[WP-API] getPosts network error:', err);
-        return [];
-    }
+    };
+
+    const cachedFn = unstable_cache(fetchPosts, [`posts-getPosts-${perPage}-${fields}`], { revalidate, tags: ["posts"] });
+    return await cachedFn();
 }
 
-export async function getPostsWithPagination(page: number = 1, perPage: number = 12): Promise<PaginatedPosts> {
-    try {
-        const res = await fetchWithRetry(
-            `${WP_API_URL}/posts?page=${page}&per_page=${perPage}&categories_exclude=${PRODUCTS_CATEGORY_ID}&status=publish&_embed`,
-            { next: { revalidate: 300, tags: ["posts"] } }
-        );
+export async function getPostsWithPagination(page: number = 1, perPage: number = 12, revalidate: number = 300): Promise<PaginatedPosts> {
+    const fetchPaginated = async () => {
+        try {
+            const res = await fetchWithRetry(
+                `${WP_API_URL}/posts?page=${page}&per_page=${perPage}&categories_exclude=${PRODUCTS_CATEGORY_ID}&status=publish&_embed`
+            );
 
-        if (!res.ok) {
-            if (res.status === 400) {
+            if (!res.ok) {
+                if (res.status === 400) {
+                    return { posts: [], totalPages: 0, total: 0 };
+                }
+                console.error(`[WP-API] getPostsWithPagination failed: ${res.status}`);
                 return { posts: [], totalPages: 0, total: 0 };
             }
-            console.error(`[WP-API] getPostsWithPagination failed: ${res.status}`);
+
+            const totalPages = parseInt(res.headers.get("X-WP-TotalPages") || "1", 10);
+            const total = parseInt(res.headers.get("X-WP-Total") || "0", 10);
+            const posts: WPPost[] = await res.json();
+            return {
+                posts: posts.filter(post => !post.categories.includes(PRODUCTS_CATEGORY_ID)),
+                totalPages,
+                total
+            };
+        } catch (err) {
+            console.error('[WP-API] getPostsWithPagination network error:', err);
             return { posts: [], totalPages: 0, total: 0 };
         }
+    };
 
-        const totalPages = parseInt(res.headers.get("X-WP-TotalPages") || "1", 10);
-        const total = parseInt(res.headers.get("X-WP-Total") || "0", 10);
-        const posts = await res.json();
-        return { posts, totalPages, total };
-    } catch (err) {
-        console.error('[WP-API] getPostsWithPagination network error:', err);
-        return { posts: [], totalPages: 0, total: 0 };
-    }
+    const cachedPaginatedFn = unstable_cache(fetchPaginated, [`posts-pagination-${page}-${perPage}`], { revalidate, tags: ["posts"] });
+    return await cachedPaginatedFn();
 }
 
 export async function getPostBySlug(slug: string): Promise<WPPost | null> {
