@@ -80,16 +80,24 @@ const PRODUCTS_CATEGORY_ID = 32;
 const WP_AUTH = (process.env.WP_AUTH || "").trim();
 
 // Retry helper: retries on network errors (ECONNRESET, socket errors) with exponential backoff
-async function fetchWithRetry(url: string, options: RequestInit & { next?: NextFetchRequestConfig } = {}, retries = 3): Promise<Response> {
+async function fetchWithRetry(url: string, options: RequestInit & { next?: NextFetchRequestConfig, forceHttp1?: boolean } = {}, retries = 3): Promise<Response> {
+    const isWriteMethod = options.method && ['POST', 'PUT', 'DELETE', 'PATCH'].includes(options.method.toUpperCase());
+    const useHttp1 = options.forceHttp1 || isWriteMethod;
+
     for (let attempt = 1; attempt <= retries; attempt++) {
         try {
-            // Use undici fetch with HTTP/1.1 agent — Hostinger blocks HTTP/2 (PROTOCOL_ERROR)
-            const res = await undiciFetch(url, {
-                ...options,
-                // @ts-ignore — undici dispatcher option
-                dispatcher: http1Agent,
-            } as any);
-            return res as unknown as Response;
+            if (useHttp1) {
+                // Use undici fetch with HTTP/1.1 agent — Hostinger blocks HTTP/2 (PROTOCOL_ERROR)
+                const res = await undiciFetch(url, {
+                    ...options,
+                    // @ts-ignore — undici dispatcher option
+                    dispatcher: http1Agent,
+                } as any);
+                return res as unknown as Response;
+            } else {
+                // Use native Next.js fetch to support caching, ISR, and request memoization
+                return await fetch(url, options);
+            }
         } catch (err: any) {
             const isNetworkError =
                 err?.code === 'ECONNRESET' ||
