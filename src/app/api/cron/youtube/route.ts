@@ -1,6 +1,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { generateContentWithRetry } from "@/lib/gemini";
 
 import { getFeaturedImage } from "@/lib/images/unsplash";
 import { uploadImageFromUrl, getOrCreateTag, getRecentAutomationPosts, isDuplicateIdeally, createPostWithIndexing } from "@/lib/wp-server";
@@ -86,8 +87,7 @@ ${createVideoPrompt(video)}
   "content": "HTML 코드 (<body> 내부 내용만. <h3>, <p>, <ul>, <li>, <strong> 태그 사용. 이미지 태그 사용 금지)"
 }
 JSON 외에 어떤 텍스트도 포함하지 마세요.`;
-
-    const result = await model.generateContent(prompt);
+    const result = await generateContentWithRetry(model, prompt);
     const response = await result.response;
     let text = response.text().trim();
 
