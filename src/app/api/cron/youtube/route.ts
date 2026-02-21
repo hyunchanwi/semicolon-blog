@@ -381,7 +381,7 @@ export async function GET(request: NextRequest) {
         let featuredMediaId = 0;
         let imageUrl = "";
 
-        // Get Featured Image (Try Unsplash, Fallback to YouTube Thumbnail)
+        // Get Featured Image (Try Unsplash, Fallback to random tech image)
         let imageCredit = "";
         const imageResult = await getFeaturedImage(title);
 
@@ -389,8 +389,15 @@ export async function GET(request: NextRequest) {
             imageUrl = imageResult.url;
             imageCredit = imageResult.credit;
         } else {
-            imageUrl = `https://i.ytimg.com/vi/${targetVideo.id}/maxresdefault.jpg`;
-            imageCredit = `Source: YouTube (${selectedChannel.name})`;
+            const fallbacks = [
+                "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&q=80&w=1200",
+                "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&q=80&w=1200",
+                "https://images.unsplash.com/photo-1485827404703-89b55fcc595e?auto=format&fit=crop&q=80&w=1200",
+                "https://images.unsplash.com/photo-1531297461136-82lw8fca8b66?auto=format&fit=crop&q=80&w=1200"
+            ];
+            imageUrl = fallbacks[Math.floor(Math.random() * fallbacks.length)];
+            imageCredit = "Unsplash (Fallback)";
+            console.log(`[YouTube] Unsplash search failed for title, using fallback tech image: ${imageUrl}`);
         }
 
         const uploaded = await uploadImageFromUrl(imageUrl, title, WP_AUTH);

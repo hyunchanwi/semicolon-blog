@@ -225,6 +225,7 @@ async function processImages(content: string, wpAuth: string): Promise<string> {
 // Local publishPost removed. Using createPostWithIndexing from lib/wp-server.ts
 
 export async function GET(request: NextRequest) {
+    console.log("[HowTo] 🛑 API ROUTE HIT!");
     const wpAuth = (process.env.WP_AUTH || "").trim();
 
     const authHeader = request.headers.get("authorization");
