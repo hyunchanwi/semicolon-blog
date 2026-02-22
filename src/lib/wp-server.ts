@@ -162,7 +162,7 @@ export async function getOrCreateTag(name: string, wpAuth: string): Promise<numb
  */
 export async function getRecentAutomationPosts(wpAuth: string): Promise<WPPost[]> {
     try {
-        const res = await wpFetch(`${WP_API_URL}/posts?per_page=50&status=publish,draft,private`, {
+        const res = await wpFetch(`${WP_API_URL}/posts?per_page=100&status=publish,draft,private`, {
             headers: { 'Authorization': `Basic ${wpAuth}` },
             cache: 'no-store'
         });
@@ -182,13 +182,13 @@ export function isDuplicateIdeally(sourceId: string, title: string, existingPost
     const cleanTitle = title.trim().toLowerCase();
 
     for (const post of existingPosts) {
-        // 1. Check automation_source_id in content or meta if available
+        // 1. Check if sourceId exists anywhere in the raw HTML content (handles both explicit comments and iframe URLs)
         const content = post.content?.rendered || "";
-        if (content.includes(`automation_source_id: youtube_${sourceId}`)) {
+        if (content.includes(sourceId)) {
             return { isDuplicate: true, reason: `Match by ID: ${sourceId}` };
         }
 
-        // 2. Check title similarity
+        // 2. Loose fallback: Check title similarity 
         const postTitle = post.title?.rendered.trim().toLowerCase();
         if (postTitle === cleanTitle) {
             return { isDuplicate: true, reason: `Match by Title: ${title}` };
@@ -204,8 +204,7 @@ export function isDuplicateIdeally(sourceId: string, title: string, existingPost
 export async function checkAutomationDuplicate(sourceId: string, wpAuth: string): Promise<{ exists: boolean }> {
     try {
         // WordPress REST API doesn't support direct meta query without plugins usually, 
-        // but we can search for it in the content OR use the custom meta field if the API allows.
-        // For simplicity and robustness during transition, we use search + local filtering against recent automate posts.
+        // but it does natively search for strings within the post content. We send the sourceId directly!
         const res = await wpFetch(`${WP_API_URL}/posts?search=${encodeURIComponent(sourceId)}&status=publish,draft,private`, {
             headers: { 'Authorization': `Basic ${wpAuth}` },
             cache: 'no-store'
@@ -213,9 +212,11 @@ export async function checkAutomationDuplicate(sourceId: string, wpAuth: string)
 
         if (res.ok) {
             const posts = await res.json();
+            // Verify that the search indeed found the sourceId in content/meta
             const exists = posts.some((p: any) =>
-                (p.content?.rendered || "").includes(`automation_source_id: ${sourceId}`) ||
-                (p.meta?.automation_source_id === sourceId)
+                (p.content?.rendered || "").includes(sourceId) ||
+                (p.meta?.automation_source_id?.includes(sourceId)) ||
+                (p.meta?.youtube_source_id === sourceId)
             );
             return { exists };
         }

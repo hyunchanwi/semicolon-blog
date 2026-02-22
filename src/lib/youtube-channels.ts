@@ -38,6 +38,23 @@ export const TECH_CHANNELS = [
     }
 ];
 
+/**
+ * 유튜브 영상이 Short인지 판별하는 헬퍼 함수
+ * HEAD 요청을 보내서 redirect(303) 되면 일반 영상, 200 OK면 쇼츠로 판별
+ */
+export async function isYouTubeShort(videoId: string): Promise<boolean> {
+    try {
+        const res = await fetch(`https://www.youtube.com/shorts/${videoId}`, {
+            method: 'HEAD',
+            redirect: 'manual'
+        });
+        return res.status === 200;
+    } catch (e) {
+        console.error(`[YouTube-ShortsCheck] Error checking ${videoId}:`, e);
+        return false;
+    }
+}
+
 export const channels = TECH_CHANNELS;
 
 export interface YouTubeVideo {
@@ -278,14 +295,28 @@ export async function getAllLatestVideos(targetChannelName?: string): Promise<{ 
         new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
     );
 
-    // 2주 이내 영상만 필터링 (최신 영상 중복 시 폴백을 위해 7일에서 14일로 확대)
-    const twoWeeksAgo = new Date();
-    twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 30);
+    // 2주 이내 영상 및 쇼츠(Shorts) 필터링
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - 14);
 
-    const recentVideos = allVideos.filter(v => new Date(v.publishedAt) >= twoWeeksAgo);
-    console.log(`[YouTube] Filtered for recency: ${allVideos.length} -> ${recentVideos.length} videos (within 14 days)`);
+    const validVideos = [];
+    for (const v of allVideos) {
+        if (new Date(v.publishedAt) < cutoffDate) {
+            continue;
+        }
 
-    return { videos: recentVideos, debugXml, tavilyError: lastTavilyError, debugRaw: lastDebugRaw, debugInfo: lastDebugInfo };
+        const isShort = await isYouTubeShort(v.id);
+        if (isShort) {
+            console.log(`[YouTube] Filtered out ${v.id} (YouTube Short)`);
+            continue;
+        }
+
+        validVideos.push(v);
+    }
+
+    console.log(`[YouTube] Filtered for recency & shorts: ${allVideos.length} -> ${validVideos.length} videos`);
+
+    return { videos: validVideos, debugXml, tavilyError: lastTavilyError, debugRaw: lastDebugRaw, debugInfo: lastDebugInfo };
 }
 
 /**

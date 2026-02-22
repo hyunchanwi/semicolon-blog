@@ -391,6 +391,14 @@ export async function GET(request: NextRequest) {
     } catch (error) {
         const message = error instanceof Error ? error.message : 'Unknown error';
         console.error("[Cron] Job Failed:", error);
-        return NextResponse.json({ error: message }, { status: 500 });
+
+        // 일시적인 외부 API(Tavily, Gemini 등) 과부하/에러인 경우, 
+        // GitHub Action 전체 실패(이메일 발송)를 막기 위해 200을 반환합니다.
+        const isTemporaryOrExternal = message.includes("503") || message.includes("429") || message.includes("fetch failed") || message.includes("Tavily") || message.includes("High demand") || message.includes("Service Unavailable");
+
+        return NextResponse.json(
+            { success: false, error: message },
+            { status: isTemporaryOrExternal ? 200 : 500 }
+        );
     }
 }

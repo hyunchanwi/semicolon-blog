@@ -4,7 +4,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { generateContentWithRetry } from "@/lib/gemini";
 
 import { getFeaturedImage } from "@/lib/images/unsplash";
-import { uploadImageFromUrl, getOrCreateTag, getRecentAutomationPosts, isDuplicateIdeally, createPostWithIndexing } from "@/lib/wp-server";
+import { uploadImageFromUrl, getOrCreateTag, getRecentAutomationPosts, isDuplicateIdeally, checkAutomationDuplicate, createPostWithIndexing } from "@/lib/wp-server";
 import { googlePublishUrl } from "@/lib/google-indexing";
 import {
     getAllLatestVideos,
@@ -338,8 +338,17 @@ export async function GET(request: NextRequest) {
             console.log(`[YouTube] 🔍 Checking top ${checkLimit} videos for duplicates (Memory Check)...`);
 
             for (const v of candidateVideos) {
-                // New Batch & Memory Check
-                const { isDuplicate, reason } = isDuplicateIdeally(v.id, v.title, existingPosts);
+                // 1차: 단기 메모리(100개) 내부 텍스트 검사
+                let { isDuplicate, reason } = isDuplicateIdeally(v.id, v.title, existingPosts);
+
+                // 2차: 장기 메모리 확인 (WP DB 전체 검색)
+                if (!isDuplicate) {
+                    const dbCheck = await checkAutomationDuplicate(v.id, WP_AUTH);
+                    if (dbCheck.exists) {
+                        isDuplicate = true;
+                        reason = `Found in WP DB (Long-term check): ${v.id}`;
+                    }
+                }
 
                 checkedVideosLog.push({
                     channel: selectedChannel.name,
@@ -486,6 +495,12 @@ export async function GET(request: NextRequest) {
 
     } catch (error) {
         console.error("[YouTube] Error:", error);
-        return NextResponse.json({ success: false, error: String(error) }, { status: 500 });
+        const message = error instanceof Error ? error.message : String(error);
+        const isTemporaryOrExternal = message.includes("503") || message.includes("429") || message.includes("fetch failed") || message.includes("Tavily") || message.includes("High demand") || message.includes("Service Unavailable");
+
+        return NextResponse.json(
+            { success: false, error: message },
+            { status: isTemporaryOrExternal ? 200 : 500 }
+        );
     }
 }

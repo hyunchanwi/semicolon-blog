@@ -347,6 +347,12 @@ export async function GET(request: NextRequest) {
 
     } catch (e) {
         console.error("[HowTo] Error:", e);
-        return NextResponse.json({ success: false, error: String(e) }, { status: 500 });
+        const message = e instanceof Error ? e.message : String(e);
+        const isTemporaryOrExternal = message.includes("503") || message.includes("429") || message.includes("fetch failed") || message.includes("Tavily") || message.includes("High demand") || message.includes("Service Unavailable");
+
+        return NextResponse.json(
+            { success: false, error: message },
+            { status: isTemporaryOrExternal ? 200 : 500 }
+        );
     }
 }
