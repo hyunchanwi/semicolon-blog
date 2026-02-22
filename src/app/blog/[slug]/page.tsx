@@ -1,4 +1,4 @@
-import { getPostBySlug, getPosts, getFeaturedImageUrl, stripHtml, decodeHtmlEntities, fixWordPressMediaUrls } from "@/lib/wp-api";
+import { getPostBySlug, getPosts, getFeaturedImageUrl, stripHtml, decodeHtmlEntities, sanitizePostContent } from "@/lib/wp-api";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Calendar, User } from "lucide-react";
 import Link from "next/link";
@@ -82,7 +82,7 @@ export default async function BlogPostPage({ params }: Props) {
     });
 
     // Fix image URLs: semicolonittech.com/wp-content → wp.semicolonittech.com/wp-content
-    const fixedContent = fixWordPressMediaUrls(post.content.rendered);
+    const fixedContent = sanitizePostContent(post.content.rendered);
     // TOC 처리: 헤딩에 ID 주입 + 목차 데이터 추출
     const { content: processedContent, toc } = processContentForTOC(fixedContent);
     const hasToc = toc.length >= 2;
