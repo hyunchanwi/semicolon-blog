@@ -201,7 +201,8 @@ JSON 외에 어떤 텍스트도 포함하지 마세요.`;
             <div class="video-container" style="position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:0.75rem;box-shadow:0 4px 6px -1px rgb(0 0 0 / 0.1);">
                 <iframe style="position:absolute;top:0;left:0;width:100%;height:100%;" src="https://www.youtube.com/embed/${video.id}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
             </div>
-            <!-- Link removed as per user request (2026-02-08) -->
+            <!-- Hidden original link for duplicate tracking -->
+            <div style="display:none;" class="original-video-link">https://www.youtube.com/watch?v=${video.id}</div>
         </div>
         `;
 

@@ -182,7 +182,8 @@ export function isDuplicateIdeally(sourceId: string, title: string, existingPost
     const cleanTitle = title.trim().toLowerCase();
 
     for (const post of existingPosts) {
-        // 1. Check if sourceId exists anywhere in the raw HTML content (handles both explicit comments and iframe URLs)
+        // 1. Check if sourceId exists anywhere in the raw HTML content 
+        // Handles explicit comments, iframe URLs, and the newly added hidden original-video-link
         const content = post.content?.rendered || "";
         if (content.includes(sourceId)) {
             return { isDuplicate: true, reason: `Match by ID: ${sourceId}` };
@@ -191,7 +192,7 @@ export function isDuplicateIdeally(sourceId: string, title: string, existingPost
         // 2. Loose fallback: Check title similarity 
         const postTitle = post.title?.rendered.trim().toLowerCase();
         if (postTitle === cleanTitle) {
-            return { isDuplicate: true, reason: `Match by Title: ${title}` };
+            return { isDuplicate: true, reason: `Match by exact Title: ${title}` };
         }
     }
 
