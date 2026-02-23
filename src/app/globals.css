@@ -134,17 +134,11 @@
 /* Glassmorphism Utilities */
 @layer utilities {
   .glass {
-    background: rgba(255, 255, 255, 0.3);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    @apply bg-white/30 dark:bg-slate-900/30 backdrop-blur-md border border-white/20 dark:border-white/10;
   }
 
   .glass-solid {
-    background: rgba(255, 255, 255, 0.7);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(255, 255, 255, 0.3);
+    @apply bg-white/70 dark:bg-slate-900/70 backdrop-blur-md border border-white/30 dark:border-white/10;
   }
 
   .glass-dark {

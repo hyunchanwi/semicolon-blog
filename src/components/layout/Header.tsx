@@ -45,7 +45,7 @@ export const Header = () => {
                         {/* Logo */}
                         <Link
                             href="/"
-                            className="text-xl md:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-700 hover:to-primary transition-all duration-300"
+                            className="text-xl md:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-700 dark:from-white dark:to-slate-300 hover:to-primary dark:hover:to-blue-400 transition-all duration-300"
                         >
                             Semicolon;
                         </Link>
@@ -137,17 +137,17 @@ export const Header = () => {
                                                 <Link
                                                     href="/"
                                                     onClick={() => setIsOpen(false)}
-                                                    className="group px-6 py-4 rounded-3xl text-lg font-bold text-slate-800 bg-white/50 border border-white/40 hover:bg-gradient-to-r hover:from-slate-50 hover:to-white hover:shadow-lg transition-all duration-300 transform active:scale-95 flex items-center gap-3"
+                                                    className="group px-6 py-4 rounded-3xl text-lg font-bold text-slate-800 dark:text-white bg-white/50 dark:bg-slate-800/50 border border-white/40 dark:border-slate-700 hover:bg-gradient-to-r hover:from-slate-50 hover:to-white dark:hover:from-slate-700 dark:hover:to-slate-600 hover:shadow-lg transition-all duration-300 transform active:scale-95 flex items-center gap-3"
                                                 >
                                                     <span className="text-2xl">🏠</span>
                                                     <span className="group-hover:translate-x-1 transition-transform duration-300">Home</span>
                                                 </Link>
 
                                                 {/* Blog with Expandable Categories */}
-                                                <div className="rounded-3xl bg-white/50 border border-white/40 overflow-hidden transition-all duration-300">
+                                                <div className="rounded-3xl bg-white/50 dark:bg-slate-800/50 border border-white/40 dark:border-slate-700 overflow-hidden transition-all duration-300">
                                                     <button
                                                         onClick={() => setIsBlogExpanded(!isBlogExpanded)}
-                                                        className="w-full px-6 py-4 text-lg font-bold text-slate-800 hover:bg-gradient-to-r hover:from-slate-50 hover:to-white hover:shadow-lg transition-all duration-300 flex items-center justify-between group"
+                                                        className="w-full px-6 py-4 text-lg font-bold text-slate-800 dark:text-white hover:bg-gradient-to-r hover:from-slate-50 hover:to-white dark:hover:from-slate-700 dark:hover:to-slate-600 hover:shadow-lg transition-all duration-300 flex items-center justify-between group"
                                                     >
                                                         <div className="flex items-center gap-3">
                                                             <span className="text-2xl">📚</span>
@@ -165,7 +165,7 @@ export const Header = () => {
                                                             : 'max-h-0 opacity-0'
                                                             } overflow-hidden`}
                                                     >
-                                                        <div className="px-3 py-3 space-y-2 bg-gradient-to-b from-slate-50/50 to-transparent">
+                                                        <div className="px-3 py-3 space-y-2 bg-gradient-to-b from-slate-50/50 dark:from-slate-800/50 to-transparent">
                                                             {blogCategories.map((cat, index) => (
                                                                 <Link
                                                                     key={cat.href}
@@ -174,7 +174,7 @@ export const Header = () => {
                                                                         setIsOpen(false);
                                                                         setIsBlogExpanded(false);
                                                                     }}
-                                                                    className="group flex items-center gap-3 px-4 py-3 rounded-2xl text-slate-700 hover:bg-gradient-to-r hover:from-white hover:to-slate-50 hover:shadow-md transition-all duration-300 transform hover:translate-x-2 active:scale-95"
+                                                                    className="group flex items-center gap-3 px-4 py-3 rounded-2xl text-slate-700 dark:text-slate-300 hover:bg-gradient-to-r hover:from-white hover:to-slate-50 dark:hover:from-slate-700 dark:hover:to-slate-600 hover:shadow-md transition-all duration-300 transform hover:translate-x-2 active:scale-95"
                                                                     style={{
                                                                         transitionDelay: isBlogExpanded ? `${index * 50}ms` : '0ms'
                                                                     }}
@@ -191,24 +191,24 @@ export const Header = () => {
                                             </div>
                                         </div>
 
-                                        <div className="p-6 border-t border-slate-100 bg-white/40 backdrop-blur-sm">
+                                        <div className="p-6 border-t border-slate-100 dark:border-slate-800 bg-white/40 dark:bg-slate-900/40 backdrop-blur-sm">
                                             <div className="flex gap-2 mb-4">
                                                 <Button
                                                     variant="outline"
-                                                    className="flex-1 rounded-2xl h-12 text-base font-medium border-slate-200"
+                                                    className="flex-1 rounded-2xl h-12 text-base font-medium border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 dark:text-white relative overflow-hidden group"
                                                     onClick={switchToKorean}
                                                 >
                                                     🇰🇷 한국어
                                                 </Button>
                                                 <Button
-                                                    className="flex-1 rounded-2xl h-12 text-base font-medium bg-slate-900 text-white shadow-lg shadow-slate-900/20"
+                                                    className="flex-1 rounded-2xl h-12 text-base font-medium bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 shadow-lg shadow-slate-900/20 dark:shadow-slate-100/20 relative overflow-hidden group"
                                                     onClick={switchToEnglish}
                                                 >
                                                     🇺🇸 English
                                                 </Button>
                                             </div>
                                             <div className="flex items-center justify-between mb-4 px-2">
-                                                <span className="text-sm font-medium text-slate-600">화면 모드</span>
+                                                <span className="text-sm font-medium text-slate-600 dark:text-slate-400">화면 모드</span>
                                                 <ThemeToggle />
                                             </div>
                                             <div className="space-y-3">

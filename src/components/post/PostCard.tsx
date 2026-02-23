@@ -44,9 +44,9 @@ export const PostCard = ({ post }: PostCardProps) => {
 
     return (
         <Link href={`/blog/${post.slug}`}>
-            <Card className="group h-full overflow-hidden rounded-2xl border-0 shadow-md hover:shadow-xl transition-all duration-300 hover:-translate-y-1 bg-white flex flex-col">
+            <Card className="group h-full overflow-hidden rounded-2xl border-0 shadow-md hover:shadow-xl transition-all duration-300 hover:-translate-y-1 bg-white dark:bg-slate-800 flex flex-col">
                 {/* Image */}
-                <div className="relative h-48 overflow-hidden bg-slate-100">
+                <div className="relative h-48 overflow-hidden bg-slate-100 dark:bg-slate-700">
                     {imageUrl ? (
                         <Image
                             src={imageUrl}
@@ -56,28 +56,28 @@ export const PostCard = ({ post }: PostCardProps) => {
                             className="object-cover group-hover:scale-105 transition-transform duration-500"
                         />
                     ) : (
-                        <div className="w-full h-full flex items-center justify-center text-slate-400 bg-slate-50">
+                        <div className="w-full h-full flex items-center justify-center text-slate-400 bg-slate-50 dark:bg-slate-800">
                             <span className="text-2xl">Semicolon;</span>
                         </div>
                     )}
 
                     {/* Category Badge */}
-                    <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-bold text-primary shadow-sm z-10">
+                    <div className="absolute top-3 left-3 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-bold text-primary dark:text-blue-400 shadow-sm z-10">
                         {categoryName}
                     </div>
                 </div>
 
                 {/* Content */}
                 <CardContent className="p-5 flex flex-col flex-1">
-                    <div className="flex items-center gap-2 text-sm text-slate-500 mb-3">
+                    <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 mb-3">
                         <Calendar className="h-4 w-4" />
                         <span>{date}</span>
                     </div>
-                    <h3 className="text-lg font-bold text-slate-900 mb-2 line-clamp-2 group-hover:text-primary transition-colors">
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2 line-clamp-2 group-hover:text-primary dark:group-hover:text-blue-400 transition-colors">
                         {decodeHtmlEntities(stripHtml(post.title.rendered))}
                     </h3>
                     {/* Fixed title decoding issue */}
-                    <p className="text-slate-600 text-sm leading-relaxed line-clamp-2 mb-4">
+                    <p className="text-slate-600 dark:text-slate-400 text-sm leading-relaxed line-clamp-2 mb-4">
                         {excerpt}
                     </p>
                 </CardContent>

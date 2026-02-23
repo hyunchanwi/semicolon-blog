@@ -7,7 +7,7 @@ export const HeroSection = () => {
     return (
         <section className="relative min-h-[80vh] flex items-center overflow-hidden">
             {/* Background Gradient */}
-            <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-blue-50/30 to-violet-50/30" />
+            <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-blue-50/30 to-violet-50/30 dark:from-slate-950 dark:via-blue-950/20 dark:to-violet-950/20" />
 
             {/* Floating Decorative Shapes */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -36,11 +36,11 @@ export const HeroSection = () => {
                     {/* Left: Text */}
                     <div className="space-y-8">
                         <h1 className="text-5xl md:text-6xl lg:text-7xl font-extrabold leading-tight">
-                            <span className="text-slate-900">기술의 미래를</span>
+                            <span className="text-slate-900 dark:text-white">기술의 미래를</span>
                             <br />
                             <span className="gradient-text">읽다, Semicolon;</span>
                         </h1>
-                        <p className="text-xl text-slate-600 leading-relaxed max-w-lg">
+                        <p className="text-xl text-slate-600 dark:text-slate-400 leading-relaxed max-w-lg">
                             AI, 가젯, 소프트웨어의 최신 트렌드를
                             <br />
                             가장 쉽고 깊이 있게 전달합니다.
@@ -59,7 +59,7 @@ export const HeroSection = () => {
                                 asChild
                                 variant="outline"
                                 size="lg"
-                                className="rounded-full px-8 py-6 text-lg border-2 hover:bg-slate-100"
+                                className="rounded-full px-8 py-6 text-lg border-2 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 dark:text-white"
                             >
                                 <Link href="/category/ai">
                                     AI 탐험하기
