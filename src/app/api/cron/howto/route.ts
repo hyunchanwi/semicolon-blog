@@ -135,7 +135,7 @@ async function generateHowToContent(topic: any): Promise<{ title: string; conten
 4. **이미지 (풍성하게)**: 글의 이해를 돕기 위해 단계별 설명 중간중간에 **[IMAGE: (영어 검색어)]**를 총 **3개~5개** 정도 적절히 배치해주세요. (예: [IMAGE: iPhone airdrop settings interface], [IMAGE: Galaxy quick share screen])
 5. **어조**: 읽는 사람이 기분 좋아지는 매우 친절하고 상냥한 경어체 (~습니다, ~해요, ~해볼까요?).
 6. **형식**: Markdown 문법(###, **, - 등)을 절대 사용하지 마세요. 오직 깔끔한 HTML 태그(<h2>, <h3>, <p>, <ul>, <ol>, <li>, <strong>, <table>)만 사용하세요.
-7. **Slug**: 주제와 관련된 **영어 URL Slug**를 하나 생성하세요. (소문자, 하이픈, 2026 포함)
+7. **Slug**: 반드시 **영어 소문자와 하이픈(-)**만으로 구성된 URL Slug를 한글 없이 짧게 생성하세요.
 
 ## 출력 형식 (JSON Only)
 {

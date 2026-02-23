@@ -245,6 +245,17 @@ export async function createPostWithIndexing(
     try {
         console.log(`[WP-Create] Creating post: ${postData.title}`);
 
+        // Slug 강제 영어/하이픈 변환 (SEO 및 URL 오류 방지)
+        if (postData.slug) {
+            postData.slug = postData.slug
+                .toLowerCase()
+                .replace(/[^a-z0-9-]+/g, '-') // 영어, 숫자, 하이픈 제외 전부 하이픈으로
+                .replace(/-+/g, '-') // 연속된 하이픈 단일화
+                .replace(/^-+|-+$/g, ''); // 양끝 하이픈 제거
+
+            if (!postData.slug) delete postData.slug; // 만약 전부 한글이라서 텅 비게 되면 차라리 WP 자동생성에 맡김
+        }
+
         // 1. WordPress에 글 생성
         const res = await wpFetch(`${WP_API_URL}/posts`, {
             method: 'POST',
