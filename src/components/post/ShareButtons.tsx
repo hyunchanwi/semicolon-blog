@@ -40,22 +40,14 @@ export function ShareButtons({ title, url }: ShareButtonsProps) {
                 ],
             });
         } else {
-            // Fallback: open Kakao story
-            window.open(`https://story.kakao.com/share?url=${encodedUrl}`, "_blank");
+            // Fallback if SDK fails
+            alert("카카오톡 공유를 지원하지 않는 환경입니다. 우측의 링크 복사를 이용해 주세요.");
         }
     };
 
     const shareToTwitter = () => {
         window.open(
             `https://twitter.com/intent/tweet?text=${encodedTitle}&url=${encodedUrl}`,
-            "_blank",
-            "width=600,height=400"
-        );
-    };
-
-    const shareToNaverBlog = () => {
-        window.open(
-            `https://blog.naver.com/openapi/share?url=${encodedUrl}&title=${encodedTitle}`,
             "_blank",
             "width=600,height=400"
         );
@@ -91,18 +83,7 @@ export function ShareButtons({ title, url }: ShareButtonsProps) {
                 </svg>
             </Button>
 
-            {/* Naver Blog */}
-            <Button
-                variant="outline"
-                size="icon"
-                onClick={shareToNaverBlog}
-                className="rounded-full w-9 h-9 bg-[#03C75A] hover:bg-[#02b350] border-0 text-white"
-                title="네이버 블로그 공유"
-            >
-                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M16.273 12.845 7.376 0H0v24h7.727V11.155L16.624 24H24V0h-7.727v12.845z" />
-                </svg>
-            </Button>
+
 
             {/* Copy Link */}
             <Button

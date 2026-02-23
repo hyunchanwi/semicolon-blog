@@ -45,8 +45,8 @@ export function PostContentLayout({ content, toc, hasToc }: PostContentLayoutPro
                         !w-full !max-w-full lg:flex-1 lg:min-w-0
                         prose-headings:font-bold prose-headings:text-slate-900 dark:prose-headings:text-slate-100 prose-headings:tracking-tight
                         prose-p:text-slate-800 dark:prose-p:text-slate-300 prose-p:leading-relaxed 
-                        prose-p:text-[1.125rem] md:prose-p:text-[1.2rem]
-                        prose-li:text-slate-800 dark:prose-li:text-slate-300 prose-li:text-[1.125rem] md:prose-li:text-[1.2rem]
+                        prose-p:text-[1.125rem] md:prose-p:text-[1.2rem] prose-p:my-4
+                        prose-li:text-slate-800 dark:prose-li:text-slate-300 prose-li:text-[1.125rem] md:prose-li:text-[1.2rem] prose-li:my-1
                         prose-a:text-indigo-600 dark:prose-a:text-indigo-400 prose-a:no-underline hover:prose-a:underline prose-a:break-all
                         prose-img:rounded-3xl prose-img:shadow-lg prose-img:my-10 prose-img:!w-full prose-img:!max-w-full prose-img:!h-auto
                         prose-code:bg-slate-100 dark:prose-code:bg-slate-800 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-md prose-code:text-indigo-600 dark:prose-code:text-indigo-400 prose-code:font-semibold
@@ -58,6 +58,7 @@ export function PostContentLayout({ content, toc, hasToc }: PostContentLayoutPro
                         [&_table]:block [&_table]:overflow-x-auto [&_table]:whitespace-nowrap
                         /* Hide empty paragraphs caused by copy-pasting from AI tools */
                         [&>p:empty]:hidden [&>p:has(br:only-child)]:hidden
+                        [&>p]:empty-cells:hide [&>br]:hidden
                         break-words overflow-hidden
                     "
                 >
