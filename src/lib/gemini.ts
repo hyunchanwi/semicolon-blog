@@ -3,40 +3,73 @@ import { SearchResult } from "./search/interface";
 import { ensureHtml } from "@/lib/markdown-to-html";
 
 /**
- * Gemini API 재시도 헬퍼 (503 Service Unavailable 등 일시적 오류 대응)
- * 최대 3회 재시도, 지수 백오프 (5초 → 15초 → 45초)
+ * Gemini API 헬퍼 (다중 API Key Fallback 및 503 재시도 기능 포함)
+ * 한 API 키의 한도(Quota)가 초과(429)되면 다음 키로 자동 전환됩니다.
+ * 503 과부하 발생 시 지수 백오프(Exponential Backoff)로 최대 3회 재시도합니다.
  */
 export async function generateContentWithRetry(
-    model: GenerativeModel,
     prompt: string,
+    modelName: string = "gemini-flash-latest",
     maxRetries: number = 3
 ): Promise<any> {
+    const keysString = process.env.GEMINI_API_KEYS || process.env.GEMINI_API_KEY || "";
+    const apiKeys = keysString.split(',').map(k => k.trim()).filter(Boolean);
+
+    if (apiKeys.length === 0) {
+        throw new Error("[Gemini] No API Keys provided in environment variables.");
+    }
+
     let lastError: Error | null = null;
 
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-        try {
-            const result = await model.generateContent(prompt);
-            return result;
-        } catch (error: any) {
-            lastError = error;
-            const isRetryable =
-                error?.status === 503 ||
-                error?.status === 429 || // Rate limit
-                (error?.message || "").includes("503") ||
-                (error?.message || "").includes("Service Unavailable") ||
-                (error?.message || "").includes("high demand") ||
-                (error?.message || "").includes("429");
+    for (let keyIdx = 0; keyIdx < apiKeys.length; keyIdx++) {
+        const apiKey = apiKeys[keyIdx];
+        const genAI = new GoogleGenerativeAI(apiKey);
+        const model = genAI.getGenerativeModel({ model: modelName });
 
-            if (!isRetryable || attempt === maxRetries) {
-                throw error;
+        if (keyIdx > 0) {
+            console.log(`[Gemini] 🔄 Automatic Fallback to API Key Setup (Index: ${keyIdx})`);
+        }
+
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                const result = await model.generateContent(prompt);
+                return result;
+            } catch (error: any) {
+                lastError = error;
+                const errMsg = error?.message || String(error);
+
+                const isTransientError =
+                    error?.status === 503 ||
+                    errMsg.includes("503") ||
+                    errMsg.includes("Service Unavailable") ||
+                    errMsg.includes("high demand") ||
+                    errMsg.includes("fetch failed");
+
+                const isQuotaError =
+                    error?.status === 429 ||
+                    errMsg.includes("429") ||
+                    errMsg.includes("quota") ||
+                    errMsg.includes("limit") ||
+                    errMsg.includes("API key not valid") ||
+                    errMsg.includes("exhausted");
+
+                if (isQuotaError) {
+                    console.warn(`[Gemini] ⚠️ Quota/Auth error for key index ${keyIdx}: ${errMsg}`);
+                    break; // Break internal loop directly to fail over to NEXT API KEY!
+                }
+
+                if (!isTransientError || attempt === maxRetries) {
+                    break; // Give up on this key if it's not a generic retryable error
+                }
+
+                const waitMs = 5000 * Math.pow(3, attempt - 1); // 5s, 15s, 45s
+                console.warn(`[Gemini] ⚠️ Attempt ${attempt} transient error (Key ${keyIdx}). Retrying in ${waitMs / 1000}s...`);
+                await new Promise(resolve => setTimeout(resolve, waitMs));
             }
-
-            const waitMs = 5000 * Math.pow(3, attempt - 1); // 5s, 15s, 45s
-            console.warn(`[Gemini] ⚠️ Attempt ${attempt} failed (${error?.status || 'unknown'}). Retrying in ${waitMs / 1000}s...`);
-            await new Promise(resolve => setTimeout(resolve, waitMs));
         }
     }
 
+    console.error("[Gemini] ❌ All available Gemini keys failed.");
     throw lastError;
 }
 
@@ -51,8 +84,6 @@ export interface BlogPostResult {
 }
 
 export async function generateBlogPost(topic: string, searchResults: SearchResult[]): Promise<BlogPostResult> {
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
-    const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
 
     const context = searchResults.map((r, i) =>
         `Source ${i + 1} (${r.title}):\n${r.content}\nURL: ${r.url}`
@@ -99,7 +130,7 @@ export async function generateBlogPost(topic: string, searchResults: SearchResul
   `;
 
     try {
-        const result = await generateContentWithRetry(model, prompt);
+        const result = await generateContentWithRetry(prompt);
         const response = await result.response;
         let text = response.text();
 
@@ -192,9 +223,6 @@ export async function generateBlogPost(topic: string, searchResults: SearchResul
 
 // 상품 소개 멘트 및 제목 생성 (PICKS용)
 export async function generateProductContent(productName: string, price: number, description: string): Promise<{ title: string; content: string }> {
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
-    const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
-
     const prompt = `
     당신은 IT 기기 및 가젯 전문 리뷰어입니다.
     다음 제품에 대해 사용자가 구매하고 싶어지도록 매력적인 "3줄 요약 추천 멘트"와 "클릭을 유도하는 제목"을 작성해주세요.
@@ -216,7 +244,7 @@ export async function generateProductContent(productName: string, price: number,
     `;
 
     try {
-        const result = await generateContentWithRetry(model, prompt);
+        const result = await generateContentWithRetry(prompt);
         const response = result.response;
         let text = response.text();
 

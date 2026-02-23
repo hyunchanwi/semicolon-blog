@@ -56,7 +56,7 @@ async function getRecentTopics(wpAuth: string): Promise<string[]> {
 
 // 1. Get Topic (Trends + Tavily)
 async function getHowToTopic(recentTopics: string[], existingPosts: any[], forceTopic?: string): Promise<any> {
-    const tavily = new TavilySearchProvider(process.env.TAVILY_API_KEY || "");
+    const tavily = new TavilySearchProvider(process.env.TAVILY_API_KEYS || process.env.TAVILY_API_KEY || "");
 
     let selectedTopic: TrendingTopic | null = null;
     let query = forceTopic;
@@ -146,7 +146,7 @@ async function generateHowToContent(topic: any): Promise<{ title: string; conten
 JSON 외에 어떤 텍스트도 덧붙이지 마세요.
 `;
 
-    const result = await generateContentWithRetry(model, prompt);
+    const result = await generateContentWithRetry(prompt);
     const response = await result.response;
     let text = response.text().trim();
 
@@ -167,7 +167,7 @@ JSON 외에 어떤 텍스트도 덧붙이지 마세요.
 
 // 3. Process Images
 async function processImages(content: string, wpAuth: string): Promise<string> {
-    const tavily = new TavilySearchProvider(process.env.TAVILY_API_KEY || "");
+    const tavily = new TavilySearchProvider(process.env.TAVILY_API_KEYS || process.env.TAVILY_API_KEY || "");
     const matches = content.match(/\[IMAGE: [^\]]+\]/g) || [];
 
     if (matches.length === 0) return content;

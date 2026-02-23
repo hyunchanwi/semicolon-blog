@@ -141,7 +141,7 @@ export async function GET(request: NextRequest) {
         }
 
         // 4. Tavily로 최신 정보 검색
-        const searcher = new TavilySearchProvider(process.env.TAVILY_API_KEY || "");
+        const searcher = new TavilySearchProvider(process.env.TAVILY_API_KEYS || process.env.TAVILY_API_KEY || "");
         const searchResults = await searcher.search(`${selectedTitle} 최신 뉴스 2026`);
 
         if (searchResults.length === 0) {

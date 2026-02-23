@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
         if (!topic) return NextResponse.json({ error: "Topic is required" }, { status: 400 });
 
         // 2. Search (Tavily - 텍스트 소스)
-        const searcher = new TavilySearchProvider(process.env.TAVILY_API_KEY || "");
+        const searcher = new TavilySearchProvider(process.env.TAVILY_API_KEYS || process.env.TAVILY_API_KEY || "");
         const searchResults = await searcher.search(topic);
 
         if (searchResults.length === 0) {

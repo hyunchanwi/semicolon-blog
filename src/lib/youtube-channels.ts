@@ -399,7 +399,7 @@ async function getVideosFromTavily(channelName: string, channelId: string): Prom
     }
 
     try {
-        const tavily = new TavilySearchProvider(process.env.TAVILY_API_KEY);
+        const tavily = new TavilySearchProvider(process.env.TAVILY_API_KEYS || process.env.TAVILY_API_KEY || "");
         // 검색 쿼리: 채널명 + "최신 영상" + 사이트 제한
         const query = `"${channelName}" site:youtube.com/watch`;
 

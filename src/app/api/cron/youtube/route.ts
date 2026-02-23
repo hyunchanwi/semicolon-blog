@@ -87,7 +87,7 @@ ${createVideoPrompt(video)}
   "content": "HTML 코드 (<body> 내부 내용만. <h3>, <p>, <ul>, <li>, <strong> 태그 사용. 이미지 태그 사용 금지)"
 }
 JSON 외에 어떤 텍스트도 포함하지 마세요.`;
-    const result = await generateContentWithRetry(model, prompt);
+    const result = await generateContentWithRetry(prompt);
     const response = await result.response;
     let text = response.text().trim();
 
