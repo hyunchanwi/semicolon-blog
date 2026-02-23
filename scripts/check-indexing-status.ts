@@ -1,49 +1,69 @@
-/**
- * check-indexing-status.ts
- * 최근 글들의 자동 색인 요청 여부 (indexing_requested_at 메타 데이터) 확인
- */
+import { fetch as undiciFetch } from 'undici';
+import * as dotenv from 'dotenv';
+import * as fs from 'fs';
 
-import { Agent, fetch as undiciFetch } from "undici";
+// Load env
+const envContent = fs.readFileSync('.env.prod', 'utf-8');
+const envConfig = dotenv.parse(envContent);
+const WP_API_URL = 'https://wp.semicolonittech.com/wp-json/wp/v2';
+const WP_AUTH = envConfig.WP_AUTH;
+const SITE_URL = envConfig.NEXT_PUBLIC_SITE_URL || 'https://semicolonittech.com';
 
-const http1Agent = new Agent({ allowH2: false });
-const wpFetch = (url: string, opts: any = {}) =>
-    undiciFetch(url, { ...opts, dispatcher: http1Agent }) as any;
-
-const WP_API_URL = "https://wp.semicolonittech.com/wp-json/wp/v2";
-const WP_AUTH = (process.env.WP_AUTH || "").trim();
-
-async function main() {
-    console.log("🔍 Checking indexing status of recent posts...\n");
+async function checkIndexingStatus() {
+    console.log("Fetching all published posts from WordPress...");
+    let allPosts: any[] = [];
+    let page = 1;
+    let totalPages = 1;
 
     try {
-        const res = await wpFetch(`${WP_API_URL}/posts?per_page=10&_fields=id,title,date,link,meta,status`, {
-            headers: { Authorization: `Basic ${WP_AUTH}` },
-        });
+        do {
+            const res = await undiciFetch(`${WP_API_URL}/posts?per_page=100&page=${page}&status=publish`, {
+                headers: { 'Authorization': `Basic ${WP_AUTH}` }
+            });
 
-        if (!res.ok) {
-            throw new Error(`Failed to fetch posts: ${res.status}`);
+            if (!res.ok) {
+                console.error(`Failed to fetch page ${page}: ${res.statusText}`);
+                break;
+            }
+
+            totalPages = parseInt(res.headers.get('x-wp-totalpages') || '1', 10);
+            const posts = await res.json() as any[];
+            allPosts = allPosts.concat(posts);
+            console.log(`Fetched page ${page}/${totalPages} (${posts.length} posts)`);
+            page++;
+        } while (page <= totalPages);
+
+        console.log(`\nTotal posts found: ${allPosts.length}`);
+
+        let indexedCount = 0;
+        let unindexedCount = 0;
+        let missingMetaPosts = [];
+
+        for (const post of allPosts) {
+            // Check if our custom meta 'indexing_requested_at' exists
+            // Note: WP REST API only exposes meta fields that are explicitly registered.
+            // If it's not exposed, we might not see it here, but let's check.
+            const meta = post.meta || {};
+            if (meta.indexing_requested_at) {
+                indexedCount++;
+            } else {
+                unindexedCount++;
+                missingMetaPosts.push(post.id);
+            }
         }
 
-        const posts = await res.json();
+        console.log(`\n--- Indexing Notification Status ---`);
+        console.log(`Total Published Posts: ${allPosts.length}`);
+        console.log(`Posts with Indexing Requested Meta: ${indexedCount}`);
+        console.log(`Posts without Meta (May not have been notified): ${unindexedCount}`);
 
-        console.log(`| ID | Title (Truncated) | Date | Source | Indexing Requested At |`);
-        console.log(`|---|---|---|---|---|`);
+        if (unindexedCount > 0) {
+            console.log(`Sample unindexed post IDs (up to 5): ${missingMetaPosts.slice(0, 5).join(', ')}`);
+        }
 
-        posts.forEach((p: any) => {
-            const title = p.title?.rendered || "(No Title)";
-            const date = p.date?.split("T")[0];
-            const meta = p.meta || {};
-            const source = meta.automation_source_id || "Manual";
-            const indexedAt = meta.indexing_requested_at
-                ? new Date(meta.indexing_requested_at).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })
-                : "❌ Not Requested";
-
-            console.log(`| ${p.id} | ${title.slice(0, 30)}... | ${date} | ${source} | ${indexedAt} |`);
-        });
-
-    } catch (e: any) {
-        console.error("Error:", e.message);
+    } catch (e) {
+        console.error("Error checking posts:", e);
     }
 }
 
-main();
+checkIndexingStatus();

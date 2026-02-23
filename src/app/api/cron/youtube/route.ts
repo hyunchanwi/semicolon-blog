@@ -400,16 +400,22 @@ export async function GET(request: NextRequest) {
         // 5. Image & Category Setup
         let featuredImageHtml = "";
         let featuredMediaId = 0;
-        let imageUrl = "";
+        let imageUrl = targetVideo.thumbnailUrl || `https://i.ytimg.com/vi/${targetVideo.id}/hqdefault.jpg`;
+        let imageCredit = `YouTube Thumbnail: ${selectedChannel.name}`;
 
-        // Get Featured Image (Try Unsplash, Fallback to random tech image)
-        let imageCredit = "";
-        const imageResult = await getFeaturedImage(title);
+        console.log(`[YouTube] 🖼️ Using YouTube Thumbnail: ${imageUrl}`);
 
-        if (imageResult) {
-            imageUrl = imageResult.url;
-            imageCredit = imageResult.credit;
-        } else {
+        // Sometimes maxresdefault.jpg returns 404, we'll try uploading it, if it fails, fallback to hqdefault
+        let uploaded = await uploadImageFromUrl(imageUrl, title, WP_AUTH);
+
+        if (!uploaded && imageUrl.includes('maxresdefault')) {
+            console.log(`[YouTube] maxresdefault failed, trying hqdefault...`);
+            imageUrl = `https://i.ytimg.com/vi/${targetVideo.id}/hqdefault.jpg`;
+            uploaded = await uploadImageFromUrl(imageUrl, title, WP_AUTH);
+        }
+
+        if (!uploaded) {
+            console.warn(`[YouTube] Failed to upload YouTube thumbnail, using fallback tech image.`);
             const fallbacks = [
                 "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&q=80&w=1200",
                 "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&q=80&w=1200",
@@ -418,10 +424,8 @@ export async function GET(request: NextRequest) {
             ];
             imageUrl = fallbacks[Math.floor(Math.random() * fallbacks.length)];
             imageCredit = "Unsplash (Fallback)";
-            console.log(`[YouTube] Unsplash search failed for title, using fallback tech image: ${imageUrl}`);
         }
 
-        const uploaded = await uploadImageFromUrl(imageUrl, title, WP_AUTH);
         if (uploaded) {
             featuredMediaId = uploaded.id;
 
