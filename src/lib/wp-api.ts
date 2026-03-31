@@ -35,6 +35,9 @@ export interface WPPost {
     tags: number[]; // Added tags
     meta?: {
         ai_summary?: string;
+        translation_group?: string;
+        translation_pair?: number;
+        lang?: string;
     };
     _embedded?: {
         "wp:featuredmedia"?: Array<{
@@ -326,4 +329,93 @@ export async function getMedia(id: number): Promise<{ source_url: string } | nul
     const res = await fetch(`${WP_API_URL}/media/${id}`, { next: { revalidate: 3600 } });
     if (!res.ok) return null;
     return res.json();
+}
+
+// ──────────────────────────────────────────────
+// 다국어(i18n) 지원 함수
+// ──────────────────────────────────────────────
+
+/**
+ * 언어별 태그로 필터링된 포스트를 페이지네이션으로 가져옵니다.
+ * 영어 글은 'en' 태그가 달려있고, 한국어 글에는 'en' 태그가 없습니다.
+ */
+export async function getPostsWithPaginationByLang(
+    lang: 'ko' | 'en',
+    page: number = 1,
+    perPage: number = 12,
+    revalidate: number = 300
+): Promise<PaginatedPosts> {
+    const fetchPaginated = async () => {
+        try {
+            // For English: fetch posts that have the 'en' tag
+            // For Korean: use existing logic (exclude products, no 'en' tag filter)
+            let url = `${WP_API_URL}/posts?page=${page}&per_page=${perPage}&categories_exclude=${PRODUCTS_CATEGORY_ID}&status=publish&_embed`;
+
+            if (lang === 'en') {
+                // We need to find the 'en' tag ID first
+                const tagRes = await fetchWithRetry(`${WP_API_URL}/tags?slug=en`);
+                if (tagRes.ok) {
+                    const tags = await tagRes.json();
+                    if (tags.length > 0) {
+                        url += `&tags=${tags[0].id}`;
+                    } else {
+                        // 'en' tag doesn't exist yet, no English posts
+                        return { posts: [], totalPages: 0, total: 0 };
+                    }
+                }
+            }
+
+            const res = await fetchWithRetry(url);
+
+            if (!res.ok) {
+                if (res.status === 400) {
+                    return { posts: [], totalPages: 0, total: 0 };
+                }
+                console.error(`[WP-API] getPostsWithPaginationByLang(${lang}) failed: ${res.status}`);
+                return { posts: [], totalPages: 0, total: 0 };
+            }
+
+            const totalPages = parseInt(res.headers.get("X-WP-TotalPages") || "1", 10);
+            const total = parseInt(res.headers.get("X-WP-Total") || "0", 10);
+            const posts: WPPost[] = await res.json();
+            return {
+                posts: posts.filter(post => !post.categories.includes(PRODUCTS_CATEGORY_ID)),
+                totalPages,
+                total
+            };
+        } catch (err) {
+            console.error(`[WP-API] getPostsWithPaginationByLang(${lang}) error:`, err);
+            return { posts: [], totalPages: 0, total: 0 };
+        }
+    };
+
+    const cachedFn = unstable_cache(
+        fetchPaginated,
+        [`posts-lang-${lang}-${page}-${perPage}`],
+        { revalidate, tags: ["posts"] }
+    );
+    return await cachedFn();
+}
+
+/**
+ * 포스트 ID로 번역 짝꿍 글 정보를 가져옵니다.
+ * translation_pair 메타에 저장된 상대방 글 ID를 조회합니다.
+ */
+export async function getTranslationPair(postId: number): Promise<{ id: number; slug: string; lang: string } | null> {
+    try {
+        const res = await fetchWithRetry(
+            `${WP_API_URL}/posts/${postId}?_fields=id,slug,meta`,
+            { next: { revalidate: 300 } }
+        );
+        if (!res.ok) return null;
+        const post = await res.json();
+        return {
+            id: post.id,
+            slug: post.slug,
+            lang: post.meta?.lang || 'ko',
+        };
+    } catch (err) {
+        console.error('[WP-API] getTranslationPair error:', err);
+        return null;
+    }
 }

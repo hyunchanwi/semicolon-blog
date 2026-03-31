@@ -347,3 +347,118 @@ export async function getRecentPostUrls(limit: number = 30): Promise<{ title: st
         return [];
     }
 }
+
+// ──────────────────────────────────────────────
+// 다국어(i18n) 이중 발행 시스템
+// ──────────────────────────────────────────────
+
+/**
+ * Updates the meta fields of an existing post (e.g., to set translation_pair after both posts are created)
+ */
+async function updatePostMeta(postId: number, meta: Record<string, any>, wpAuth: string): Promise<boolean> {
+    try {
+        const res = await wpFetch(`${WP_API_URL}/posts/${postId}`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Basic ${wpAuth}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ meta })
+        });
+        return res.ok;
+    } catch (e) {
+        console.error(`[WP-Meta] Failed to update meta for post ${postId}:`, e);
+        return false;
+    }
+}
+
+/**
+ * 한국어와 영어 글을 동시에 발행하고 translation_pair로 상호 연결합니다.
+ * 
+ * @returns { ko: WPPost | null, en: WPPost | null }
+ */
+export async function createBilingualPosts(
+    koData: {
+        title: string;
+        content: string;
+        slug?: string;
+        categories?: number[];
+        tags?: number[];
+        featured_media?: number;
+        meta?: Record<string, any>;
+        status?: string;
+    },
+    enData: {
+        title: string;
+        content: string;
+        slug?: string;
+    },
+    wpAuth: string
+): Promise<{ ko: any | null; en: any | null }> {
+    const translationGroup = `grp_${Date.now()}`;
+
+    // 1. 한국어 글 먼저 발행
+    console.log(`[Bilingual] 🇰🇷 Publishing Korean post: ${koData.title}`);
+    const koPost = await createPostWithIndexing({
+        ...koData,
+        status: koData.status || 'publish',
+        meta: {
+            ...koData.meta,
+            translation_group: translationGroup,
+            lang: 'ko',
+        }
+    }, wpAuth);
+
+    if (!koPost) {
+        console.error("[Bilingual] ❌ Failed to create Korean post");
+        return { ko: null, en: null };
+    }
+
+    // 2. 'en' 태그 가져오기/생성
+    const enTagId = await getOrCreateTag('en', wpAuth);
+    const enTags = [...(koData.tags || [])];
+    if (enTagId) enTags.push(enTagId);
+
+    // 3. 영어 글 발행
+    const enSlug = enData.slug
+        ? (enData.slug.endsWith('-en') ? enData.slug : `${enData.slug}-en`)
+        : (koData.slug ? `${koData.slug}-en` : undefined);
+
+    console.log(`[Bilingual] 🇺🇸 Publishing English post: ${enData.title}`);
+    const enPost = await createPostWithIndexing({
+        title: enData.title,
+        content: enData.content,
+        slug: enSlug,
+        categories: koData.categories,
+        tags: enTags,
+        featured_media: koData.featured_media,
+        status: koData.status || 'publish',
+        meta: {
+            ...(koData.meta || {}),
+            translation_group: translationGroup,
+            lang: 'en',
+            translation_pair: koPost.id,
+        }
+    }, wpAuth);
+
+    // 4. 한국어 글에 영어 짝꿍 ID 역연결
+    if (enPost) {
+        await updatePostMeta(koPost.id, {
+            translation_pair: enPost.id,
+        }, wpAuth);
+        console.log(`[Bilingual] ✅ Linked: KO #${koPost.id} ↔ EN #${enPost.id}`);
+
+        // 5. 영어 글 Google Indexing (영어 경로)
+        const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://semicolonittech.com';
+        const enPostAny = enPost as any;
+        const enPostSlug = enPostAny.slug || enSlug || '';
+        const enIndexUrl = `${siteUrl}/en/blog/${enPostSlug}`;
+        console.log(`[Bilingual] 🔍 Requesting Google Indexing for EN: ${enIndexUrl}`);
+        await googlePublishUrl(enIndexUrl);
+    } else {
+        console.error("[Bilingual] ⚠️ English post failed, Korean post published alone");
+    }
+
+    return { ko: koPost, en: enPost };
+}
+

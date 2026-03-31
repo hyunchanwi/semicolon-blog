@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { usePathname } from "next/navigation";
 import { Menu, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { GoogleTranslate, useLanguageSwitch } from "@/components/GoogleTranslate";
 import { LoginButton } from "@/components/auth/LoginButton";
 import { SubscribeButton } from "@/components/subscribe/SubscribeButton";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -22,7 +22,19 @@ const navLinks = [
 export const Header = () => {
     const [isOpen, setIsOpen] = useState(false);
     const [isBlogExpanded, setIsBlogExpanded] = useState(false);
-    const { switchToKorean, switchToEnglish } = useLanguageSwitch();
+    const pathname = usePathname();
+    const isEnglish = pathname.startsWith('/en');
+
+    // Compute the alternate language path
+    const getAltLangPath = () => {
+        if (isEnglish) {
+            // /en/blog/slug → /blog/slug (remove /en prefix)
+            return pathname.replace(/^\/en/, '') || '/';
+        } else {
+            // /blog/slug → /en/blog/slug
+            return `/en${pathname}`;
+        }
+    };
 
     // Grouped categories for dropdown
     const blogCategories = [
@@ -38,7 +50,6 @@ export const Header = () => {
 
     return (
         <>
-            <GoogleTranslate />
             <header className="fixed top-0 left-0 right-0 z-50 glass-solid border-b border-white/20 transition-all duration-300">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex items-center justify-between h-16 md:h-20">
@@ -98,20 +109,32 @@ export const Header = () => {
                             <ThemeToggle />
                             <div className="flex bg-slate-100/50 dark:bg-slate-800/50 p-1 rounded-full backdrop-blur-sm">
                                 <Button
+                                    asChild
                                     variant="ghost"
                                     size="sm"
-                                    className="rounded-full px-4 hover:bg-white dark:hover:bg-slate-700 hover:shadow-sm h-8 text-xs font-medium text-slate-600 dark:text-slate-300"
-                                    onClick={switchToKorean}
+                                    className={`rounded-full px-4 h-8 text-xs font-medium transition-all ${
+                                        !isEnglish
+                                            ? 'bg-white dark:bg-slate-700 shadow-sm text-slate-900 dark:text-white'
+                                            : 'text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 hover:shadow-sm'
+                                    }`}
                                 >
-                                    한국어
+                                    <Link href={isEnglish ? getAltLangPath() : pathname}>
+                                        한국어
+                                    </Link>
                                 </Button>
                                 <Button
+                                    asChild
                                     variant="ghost"
                                     size="sm"
-                                    className="rounded-full px-4 hover:bg-white dark:hover:bg-slate-700 hover:shadow-sm h-8 text-xs font-medium text-slate-600 dark:text-slate-300"
-                                    onClick={switchToEnglish}
+                                    className={`rounded-full px-4 h-8 text-xs font-medium transition-all ${
+                                        isEnglish
+                                            ? 'bg-white dark:bg-slate-700 shadow-sm text-slate-900 dark:text-white'
+                                            : 'text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 hover:shadow-sm'
+                                    }`}
                                 >
-                                    English
+                                    <Link href={!isEnglish ? getAltLangPath() : pathname}>
+                                        English
+                                    </Link>
                                 </Button>
                             </div>
                             <div className="w-px h-6 bg-slate-200 dark:bg-slate-700 mx-2" />
@@ -194,17 +217,27 @@ export const Header = () => {
                                         <div className="p-6 border-t border-slate-100 dark:border-slate-800 bg-white/40 dark:bg-slate-900/40 backdrop-blur-sm">
                                             <div className="flex gap-2 mb-4">
                                                 <Button
+                                                    asChild
                                                     variant="outline"
-                                                    className="flex-1 rounded-2xl h-12 text-base font-medium border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 dark:text-white relative overflow-hidden group"
-                                                    onClick={switchToKorean}
+                                                    className={`flex-1 rounded-2xl h-12 text-base font-medium border-slate-200 dark:border-slate-700 relative overflow-hidden group ${
+                                                        !isEnglish ? 'bg-slate-100 dark:bg-slate-800' : 'hover:bg-slate-100 dark:hover:bg-slate-800 dark:text-white'
+                                                    }`}
                                                 >
-                                                    🇰🇷 한국어
+                                                    <Link href={isEnglish ? getAltLangPath() : pathname} onClick={() => setIsOpen(false)}>
+                                                        🇰🇷 한국어
+                                                    </Link>
                                                 </Button>
                                                 <Button
-                                                    className="flex-1 rounded-2xl h-12 text-base font-medium bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 shadow-lg shadow-slate-900/20 dark:shadow-slate-100/20 relative overflow-hidden group"
-                                                    onClick={switchToEnglish}
+                                                    asChild
+                                                    className={`flex-1 rounded-2xl h-12 text-base font-medium relative overflow-hidden group ${
+                                                        isEnglish
+                                                            ? 'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 shadow-lg'
+                                                            : 'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 shadow-lg shadow-slate-900/20 dark:shadow-slate-100/20'
+                                                    }`}
                                                 >
-                                                    🇺🇸 English
+                                                    <Link href={!isEnglish ? getAltLangPath() : pathname} onClick={() => setIsOpen(false)}>
+                                                        🇺🇸 English
+                                                    </Link>
                                                 </Button>
                                             </div>
                                             <div className="flex items-center justify-between mb-4 px-2">

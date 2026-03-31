@@ -7,9 +7,10 @@ import { Calendar } from "lucide-react";
 
 interface PostCardProps {
     post: WPPost;
+    basePath?: string;
 }
 
-export const PostCard = ({ post }: PostCardProps) => {
+export const PostCard = ({ post, basePath = "/blog" }: PostCardProps) => {
     // 1. Featured Image
     let imageUrl = getFeaturedImageUrl(post);
 
@@ -43,7 +44,7 @@ export const PostCard = ({ post }: PostCardProps) => {
     const categoryName = categoryNameMap[rawCategoryName] || rawCategoryName;
 
     return (
-        <Link href={`/blog/${post.slug}`}>
+        <Link href={`${basePath}/${post.slug}`}>
             <Card className="group h-full overflow-hidden rounded-2xl border-0 shadow-md hover:shadow-xl transition-all duration-300 hover:-translate-y-1 bg-white dark:bg-slate-800 flex flex-col">
                 {/* Image */}
                 <div className="relative h-48 overflow-hidden bg-slate-100 dark:bg-slate-700">

@@ -302,7 +302,6 @@ export async function GET(request: NextRequest) {
         const tags = trendTag ? [trendTag] : [];
 
         // 이미지를 글 상단에 추가 (최종 본문)
-        // Restore finalContent definition which was accidentally removed
         const finalContent = featuredImageHtml + finalHtmlContent;
 
         const newPost = await createPostWithIndexing({

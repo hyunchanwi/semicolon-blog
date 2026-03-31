@@ -1,0 +1,18 @@
+name: Cron - Translate Posts
+
+on:
+  schedule:
+    # KST 15:00 = UTC 06:00 (한국어 글이 발행된 후 번역)
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+jobs:
+  translate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Trigger Translation Cron
+        run: |
+          curl -s -X GET "${{ secrets.SITE_URL }}/api/cron/translate" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json" | jq .
