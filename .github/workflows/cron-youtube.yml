@@ -3,9 +3,7 @@ name: YouTube Review Cron
 on:
   schedule:
     # KST 12:00 = UTC 03:00
-    # KST 21:00 = UTC 12:00
     - cron: '0 3 * * *'
-    - cron: '0 12 * * *'
   workflow_dispatch:
 
 jobs:

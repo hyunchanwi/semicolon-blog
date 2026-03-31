@@ -2,18 +2,19 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FileText, FolderOpen, Eye, Plus } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { getPosts, getCategories, stripHtml, decodeHtmlEntities } from "@/lib/wp-api";
+import { getPosts, getCategories, stripHtml, decodeHtmlEntities, getPostsWithPagination } from "@/lib/wp-api";
 
 export const dynamic = 'force-dynamic'; // Always fetch fresh data (never use build-time cache)
 
 export default async function AdminDashboard() {
-    const [posts, categories] = await Promise.all([
+    const [posts, categories, paginationInfo] = await Promise.all([
         getPosts(100),
         getCategories(),
+        getPostsWithPagination(1, 1)
     ]);
 
     const stats = [
-        { title: "전체 글", value: posts.length, icon: FileText, color: "text-blue-500" },
+        { title: "전체 글", value: paginationInfo.total, icon: FileText, color: "text-blue-500" },
         { title: "카테고리", value: categories.length, icon: FolderOpen, color: "text-violet-500" },
     ];
 
