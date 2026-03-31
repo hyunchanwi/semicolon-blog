@@ -4,12 +4,13 @@ import { NextRequest } from "next/server";
 dotenv.config({ path: '.env.local' });
 
 async function main() {
-    console.log("Loading HowTo cron module...");
-    const { GET } = await import("../src/app/api/cron/howto/route");
+    console.log("Loading modules...");
+    const { GET } = await import("../src/app/api/cron/generate/route");
 
-    console.log(`Testing HowTo Cron...`);
+    console.log(`Testing Trend Cron...`);
 
-    const req = new NextRequest(`http://localhost:3000/api/cron/howto`, {
+    // Pass the secret via auth header
+    const req = new NextRequest(`http://localhost:3000/api/cron/generate`, {
         headers: {
             "Authorization": `Bearer ${process.env.CRON_SECRET}`
         }
@@ -23,7 +24,7 @@ async function main() {
     console.log(`Completed in ${duration.toFixed(2)} seconds`);
 
     const data = await res.json();
-    console.log(JSON.stringify(data, null, 2));
+    console.log(data);
 }
 
 main().catch(console.error);

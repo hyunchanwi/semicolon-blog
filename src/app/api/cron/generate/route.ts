@@ -225,46 +225,17 @@ export async function GET(request: NextRequest) {
                     let imgHtml = '';
 
                     try {
-                        console.log(`[Cron] Searching image for: "${query}"`);
-                        // Reuse searcher
-                        const results = await searcher.search(`${query} image`);
-                        const bestResult = results.find((r: any) => r.images && r.images.length > 0);
-
-                        let foundImageUrl = '';
-                        let foundImageCredit = 'Source: Internet';
-
-                        if (bestResult && bestResult.images && bestResult.images.length > 0) {
-                            foundImageUrl = bestResult.images[0];
-                        } else {
-                            // Fallback to Unsplash inside parallel task if available
-                            const unsplashImg = await getFeaturedImage(query);
-                            if (unsplashImg) {
-                                foundImageUrl = unsplashImg.url;
-                                foundImageCredit = unsplashImg.credit;
-                            }
-                        }
-
-                        if (foundImageUrl) {
+                        console.log(`[Cron] Searching Unsplash image for: "${query}"`);
+                        const unsplashImg = await getFeaturedImage(query);
+                        if (unsplashImg) {
                             imgHtml = `
                             <figure class="wp-block-image size-large">
-                                <img src="${foundImageUrl}" alt="${query}" style="border-radius:12px; box-shadow:0 8px 30px rgba(0,0,0,0.12); width:100%; height:auto;" />
-                                <figcaption style="text-align:center; font-size:14px; color:#888; margin-top:8px;">${foundImageCredit}</figcaption>
+                                <img src="${unsplashImg.url}" alt="${query}" style="border-radius:12px; box-shadow:0 8px 30px rgba(0,0,0,0.12); width:100%; height:auto;" />
+                                <figcaption style="text-align:center; font-size:14px; color:#888; margin-top:8px;">${unsplashImg.credit}</figcaption>
                             </figure>`;
                         }
                     } catch (e) {
-                        console.error(`[Cron] Tavily failed for ${query}, trying Unsplash fallback`, e);
-                        try {
-                            const unsplashImg = await getFeaturedImage(query);
-                            if (unsplashImg) {
-                                imgHtml = `
-                                <figure class="wp-block-image size-large">
-                                    <img src="${unsplashImg.url}" alt="${query}" style="border-radius:12px; box-shadow:0 8px 30px rgba(0,0,0,0.12); width:100%; height:auto;" />
-                                    <figcaption style="text-align:center; font-size:14px; color:#888; margin-top:8px;">${unsplashImg.credit}</figcaption>
-                                </figure>`;
-                            }
-                        } catch (unsplashErr) {
-                            console.error(`[Cron] Both Tavily and Unsplash failed for ${query}`, unsplashErr);
-                        }
+                        console.error(`[Cron] Unsplash fallback failed for ${query}`, e);
                     }
 
                     return { match, imgHtml };
@@ -394,7 +365,8 @@ export async function GET(request: NextRequest) {
 
         // 일시적인 외부 API(Tavily, Gemini 등) 과부하/에러인 경우, 
         // GitHub Action 전체 실패(이메일 발송)를 막기 위해 200을 반환합니다.
-        const isTemporaryOrExternal = message.includes("503") || message.includes("429") || message.includes("fetch failed") || message.includes("Tavily") || message.includes("High demand") || message.includes("Service Unavailable");
+        const lowerMsg = message.toLowerCase();
+        const isTemporaryOrExternal = lowerMsg.includes("503") || lowerMsg.includes("429") || lowerMsg.includes("fetch failed") || lowerMsg.includes("tavily") || lowerMsg.includes("high demand") || lowerMsg.includes("service unavailable") || lowerMsg.includes("exceed");
 
         return NextResponse.json(
             { success: false, error: message },

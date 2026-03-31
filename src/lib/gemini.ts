@@ -9,8 +9,9 @@ import { ensureHtml } from "@/lib/markdown-to-html";
  */
 export async function generateContentWithRetry(
     prompt: string,
-    modelName: string = "gemini-flash-latest",
-    maxRetries: number = 3
+    modelName: string = "gemini-2.5-flash",
+    maxRetries: number = 3,
+    useGrounding: boolean = false
 ): Promise<any> {
     const keysString = process.env.GEMINI_API_KEYS || process.env.GEMINI_API_KEY || "";
     const apiKeys = keysString.split(',').map(k => k.trim()).filter(Boolean);
@@ -24,7 +25,11 @@ export async function generateContentWithRetry(
     for (let keyIdx = 0; keyIdx < apiKeys.length; keyIdx++) {
         const apiKey = apiKeys[keyIdx];
         const genAI = new GoogleGenerativeAI(apiKey);
-        const model = genAI.getGenerativeModel({ model: modelName });
+        const modelConfig: any = { model: modelName };
+        if (useGrounding) {
+            modelConfig.tools = [{ googleSearch: {} }];
+        }
+        const model = genAI.getGenerativeModel(modelConfig);
 
         if (keyIdx > 0) {
             console.log(`[Gemini] 🔄 Automatic Fallback to API Key Setup (Index: ${keyIdx})`);

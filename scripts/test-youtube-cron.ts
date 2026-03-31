@@ -4,12 +4,12 @@ import { NextRequest } from "next/server";
 dotenv.config({ path: '.env.local' });
 
 async function main() {
-    console.log("Loading HowTo cron module...");
-    const { GET } = await import("../src/app/api/cron/howto/route");
+    console.log("Loading YouTube cron module...");
+    const { GET } = await import("../src/app/api/cron/youtube/route");
 
-    console.log(`Testing HowTo Cron...`);
+    console.log(`Testing YouTube Cron...`);
 
-    const req = new NextRequest(`http://localhost:3000/api/cron/howto`, {
+    const req = new NextRequest(`http://localhost:3000/api/cron/youtube`, {
         headers: {
             "Authorization": `Bearer ${process.env.CRON_SECRET}`
         }

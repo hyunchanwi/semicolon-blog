@@ -126,6 +126,12 @@
     @apply border-border outline-ring/50;
   }
 
+  html,
+  body {
+    overflow-x: hidden;
+    max-width: 100vw;
+  }
+
   body {
     @apply bg-background text-foreground font-sans antialiased;
   }
@@ -220,4 +226,32 @@
     max-width: 100%;
     flex: 1 1 100%;
   }
+}
+
+/* Google AdSense 광고 오버플로 방지 */
+.google-ad-container,
+ins.adsbygoogle {
+  max-width: 100% !important;
+  overflow: hidden !important;
+}
+
+/* WP 콘텐츠 내 요소 오버플로 방지 */
+article img,
+article video,
+article iframe,
+article figure {
+  max-width: 100% !important;
+  height: auto;
+}
+
+article table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+/* 비디오 컨테이너 (YouTube 등) */
+.video-container {
+  max-width: 100% !important;
+  overflow: hidden;
 }

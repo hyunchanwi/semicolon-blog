@@ -321,3 +321,29 @@ export async function createPostWithIndexing(
         return null;
     }
 }
+
+/**
+ * Gets titles and URLs of recent posts for internal linking context
+ */
+export async function getRecentPostUrls(limit: number = 30): Promise<{ title: string; url: string }[]> {
+    try {
+        const res = await wpFetch(`${WP_API_URL}/posts?per_page=${limit}&status=publish`, {
+            cache: 'no-store'
+        });
+
+        if (!res.ok) return [];
+        const posts = await res.json();
+        const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://semicolonittech.com';
+
+        return posts.map((p: any) => {
+            const slug = p.slug || p.link.split('/').filter((s: string) => s).pop();
+            return {
+                title: p.title.rendered.replace(/<[^>]+>/g, '').trim(),
+                url: `${siteUrl}/blog/${slug}`
+            };
+        });
+    } catch (e) {
+        console.error("[WP-RecentUrls] Error:", e);
+        return [];
+    }
+}

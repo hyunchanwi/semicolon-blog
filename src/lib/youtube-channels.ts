@@ -135,7 +135,7 @@ async function getVideosFromRSS(channelId: string): Promise<YouTubeVideo[]> {
 export async function getLatestVideos(
     channelId: string,
     maxResults: number = 5
-): Promise<{ videos: YouTubeVideo[], tavilyError?: string, debugRaw?: any, debugInfo?: string }> {
+): Promise<{ videos: YouTubeVideo[], debugInfo?: string }> {
     // ... (previous code) ... (I need to be careful with replace_file_content scope)
 
     // instead of replacing the whole function, I'll replace the return statement and interface if possible.
@@ -200,64 +200,24 @@ export async function getLatestVideos(
         }
     }
 
-    // 2. Fallback to RSS
-    console.log(`[YouTube] Fallback to RSS for ${channelId}`);
-    let videos = await getVideosFromRSS(channelId);
+    // 2. Fallback to RSS (if API fails or is not configured)
+    const videos = await getVideosFromRSS(channelId);
 
-    // 3. Last Resort: Tavily Search (If RSS is empty or stale)
-    // RSS가 비어있거나, 가져온 영상들이 모두 7일 이전인 경우 Tavily 검색 시도
-    const oneWeekAgo = new Date();
-    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-    const hasRecentVideos = videos.some(v => new Date(v.publishedAt) >= oneWeekAgo);
+    // We no longer use Tavily fallback here because searching YouTube by channel name
+    // (e.g. "주연") causes massive false positives (like gaming videos) if the channel
+    // hasn't uploaded anything recently. If the channel really has no recent videos,
+    // the rotation logic in route.ts will automatically try the next channel.
 
-    let tavilyError: string | undefined;
-    let debugRaw: any | undefined;
-    let debugInfo: string | undefined;
-
-    if (videos.length === 0 || !hasRecentVideos) {
-        console.log(`[YouTube] Fallback to Tavily Search for channel ${channelId}`);
-        const channelName = TECH_CHANNELS.find(c => c.id === channelId)?.name || "";
-        if (channelName) {
-            try {
-                // Circular dependency를 피하기 위해 동적 임포트 또는 간단한 fetch 사용 권장
-                const result = await getVideosFromTavily(channelName, channelId);
-
-                if (result.debugRaw) {
-                    debugRaw = result.debugRaw;
-                }
-
-                if (result.error) {
-                    tavilyError = result.error;
-                    console.error(`[YouTube] Tavily fallback error for ${channelName}: ${result.error}`);
-                }
-
-                if (result.videos.length > 0) {
-                    console.log(`[YouTube] Tavily found ${result.videos.length} videos for ${channelName}`);
-                    return { videos: result.videos.slice(0, maxResults), debugRaw };
-                }
-            } catch (e) {
-                console.error(`[YouTube] Tavily fallback failed for ${channelName}:`, e);
-                tavilyError = `Unexpected error: ${e}`;
-            }
-        }
-    }
-
-    if (!tavilyError && !debugRaw) {
-        debugInfo = `SKIPPED Fallback. hasRecent: ${hasRecentVideos}, 1weekAgo: ${oneWeekAgo.toISOString()}, Dates: ${videos.map(v => v.publishedAt).join(", ")}`;
-    }
-
-    return { videos: videos.slice(0, maxResults), tavilyError, debugRaw, debugInfo };
+    return { videos: videos.slice(0, maxResults) };
 }
 
 /**
  * 모든 테크 채널에서 최신 영상 가져오기
  * targetChannelName이 있으면 해당 채널만 가져옴 (Rotation용)
  */
-export async function getAllLatestVideos(targetChannelName?: string): Promise<{ videos: YouTubeVideo[], debugXml?: string, tavilyError?: string, debugRaw?: any, debugInfo?: string }> {
+export async function getAllLatestVideos(targetChannelName?: string): Promise<{ videos: YouTubeVideo[], debugXml?: string, debugInfo?: string }> {
     const allVideos: YouTubeVideo[] = [];
     let debugXml = "";
-    let lastTavilyError: string | undefined;
-    let lastDebugRaw: any | undefined;
     let lastDebugInfo: string | undefined;
 
     // Filter channels if target is provided
@@ -278,9 +238,7 @@ export async function getAllLatestVideos(targetChannelName?: string): Promise<{ 
                 debugXml = xml.substring(0, 2000); // 앞부분 2000자
             }
 
-            const { videos, tavilyError, debugRaw, debugInfo } = await getLatestVideos(channel.id, 10);
-            if (tavilyError) lastTavilyError = tavilyError;
-            if (debugRaw) lastDebugRaw = debugRaw;
+            const { videos, debugInfo } = await getLatestVideos(channel.id, 10);
             if (debugInfo) lastDebugInfo = debugInfo;
 
             allVideos.push(...videos);
@@ -316,7 +274,7 @@ export async function getAllLatestVideos(targetChannelName?: string): Promise<{ 
 
     console.log(`[YouTube] Filtered for recency & shorts: ${allVideos.length} -> ${validVideos.length} videos`);
 
-    return { videos: validVideos, debugXml, tavilyError: lastTavilyError, debugRaw: lastDebugRaw, debugInfo: lastDebugInfo };
+    return { videos: validVideos, debugXml, debugInfo: lastDebugInfo };
 }
 
 /**
@@ -389,82 +347,3 @@ export function getWordPressCategoryId(youtubeCategory: string): number {
     return categoryMap[youtubeCategory] || 9; // 기본값: 테크 (ID: 9)
 }
 
-/**
- * Tavily Search API를 사용하여 최신 영상 검색 (Fallback)
- */
-async function getVideosFromTavily(channelName: string, channelId: string): Promise<{ videos: YouTubeVideo[], error?: string, debugRaw?: any }> {
-    if (!process.env.TAVILY_API_KEY) {
-        console.warn("[YouTube] TAVILY_API_KEY not found, skipping fallback.");
-        return { videos: [], error: "TAVILY_API_KEY not found" };
-    }
-
-    try {
-        const tavily = new TavilySearchProvider(process.env.TAVILY_API_KEYS || process.env.TAVILY_API_KEY || "");
-        // 검색 쿼리: 채널명 + "최신 영상" + 사이트 제한
-        const query = `"${channelName}" site:youtube.com/watch`;
-
-        console.log(`[YouTube] Searching Tavily for: ${query}`);
-        const results = await tavily.search(query);
-
-        const debugRaw = {
-            query,
-            count: results.length,
-            firstResult: results[0] ? {
-                title: results[0].title,
-                url: results[0].url,
-                date: results[0].publishedDate || "No Date"
-            } : "No results"
-        };
-
-        const videos: YouTubeVideo[] = [];
-        const channel = TECH_CHANNELS.find(c => c.id === channelId);
-
-        for (const result of results) {
-            // URL에서 Video ID 추출
-            // https://www.youtube.com/watch?v=VIDEO_ID
-            const urlMatch = result.url.match(/v=([a-zA-Z0-9_-]{11})/);
-            if (!urlMatch) continue;
-
-            const videoId = urlMatch[1];
-
-            // 이미 추가된 영상인지 확인 (중복 제거)
-            if (videos.some(v => v.id === videoId)) continue;
-
-            // 날짜 정보가 있으면 파싱 시도, 없으면 현재 시간
-            let pubDate = new Date().toISOString();
-            if (result.publishedDate) {
-                pubDate = result.publishedDate;
-
-                // Tavily가 찾아낸 영상인데 날짜가 7일 이전이면, 현재 시간으로 갱신하여 필터 통과시킴
-                // (days: 3 옵션으로 검색했으므로 최근 이슈된 영상일 가능성 높음)
-                const sevenDaysAgo = new Date();
-                sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-
-                if (new Date(pubDate) < sevenDaysAgo) {
-                    console.log(`[YouTube] Tavily video ${videoId} has old date ${pubDate}, treating as new.`);
-                    pubDate = new Date().toISOString();
-                }
-            }
-
-            videos.push({
-                id: videoId,
-                title: result.title,
-                description: result.content,
-                channelName: channelName,
-                channelId: channelId, // 검색 결과에는 없으므로 인자로 받은 ID 사용
-                publishedAt: pubDate,
-                thumbnailUrl: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
-                category: channel?.category || "tech"
-            });
-        }
-
-        if (videos.length === 0) {
-            return { videos: [], error: "Tavily returned 0 results (filtered or empty)", debugRaw };
-        }
-
-        return { videos, debugRaw };
-    } catch (e: any) {
-        console.error(`[YouTube-Tavily] Failed for ${channelName}:`, e);
-        return { videos: [], error: `Tavily Search Error: ${e.message || e}` };
-    }
-}

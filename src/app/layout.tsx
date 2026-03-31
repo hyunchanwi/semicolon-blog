@@ -81,25 +81,6 @@ export default function RootLayout({
   return (
     <html lang="ko" suppressHydrationWarning>
       <head>
-        {/* Canonical URL */}
-        <link rel="canonical" href="https://semicolonittech.com" />
-
-        {/* OpenGraph Meta Tags */}
-        <meta property="og:type" content="website" />
-        <meta property="og:locale" content="ko_KR" />
-        <meta property="og:url" content="https://semicolonittech.com" />
-        <meta property="og:site_name" content="Semicolon;" />
-        <meta property="og:title" content="Semicolon; | 기술의 미래를 읽다" />
-        <meta property="og:description" content="AI, 가젯, 소프트웨어의 최신 트렌드를 가장 쉽고 깊이 있게 전달합니다." />
-        <meta property="og:image" content="https://semicolonittech.com/og-image.png" />
-        <meta property="og:image:width" content="1200" />
-        <meta property="og:image:height" content="630" />
-
-        {/* Twitter Card */}
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="Semicolon; | 기술의 미래를 읽다" />
-        <meta name="twitter:description" content="AI, 가젯, 소프트웨어의 최신 트렌드를 가장 쉽고 깊이 있게 전달합니다." />
-        <meta name="twitter:image" content="https://semicolonittech.com/og-image.png" />
 
         {/* Schema.org JSON-LD */}
         <script

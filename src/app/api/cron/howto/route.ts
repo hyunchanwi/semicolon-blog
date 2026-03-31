@@ -4,7 +4,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { generateContentWithRetry } from "@/lib/gemini";
 import { TavilySearchProvider } from "@/lib/search/tavily";
 import { getFeaturedImage } from "@/lib/images/unsplash";
-import { uploadImageFromUrl, getOrCreateTag, getRecentAutomationPosts, isDuplicateIdeally, createPostWithIndexing } from "@/lib/wp-server";
+import { uploadImageFromUrl, getOrCreateTag, getRecentAutomationPosts, isDuplicateIdeally, createPostWithIndexing, getRecentPostUrls } from "@/lib/wp-server";
 import { getBestTopics, TrendingTopic } from "@/lib/trends/google-trends";
 import { classifyContent } from "@/lib/category-rules";
 import { googlePublishUrl } from "@/lib/google-indexing";
@@ -114,15 +114,26 @@ async function getHowToTopic(recentTopics: string[], existingPosts: any[], force
 
 // 2. Generate Content (Gemini)
 async function generateHowToContent(topic: any): Promise<{ title: string; content: string; slug: string }> {
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
-    const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
+
+    let recentPostsContext = "";
+    try {
+        console.log(`[HowTo] Fetching recent posts for internal linking...`);
+        const recentPosts = await getRecentPostUrls(30);
+        if (recentPosts && recentPosts.length > 0) {
+            recentPostsContext = "\n\n## [블로그 기존 글 목록 (내부 링크용)]\n" +
+                "아래는 우리 블로그에 이미 작성된 글 목록입니다. 본문을 작성하다가 맥락이 자연스럽게 이어질 때, 이 글들을 적극적으로 언급하며 HTML <a> 태그로 링크를 걸어주세요. (단, 과도하게 많이 넣지 말고 1~2개 정도 구글 SEO에 도움되도록 자연스럽게 삽입하세요.)\n" +
+                recentPosts.map(p => `- 제목: ${p.title} (URL: ${p.url})`).join("\n");
+        }
+    } catch (e) {
+        console.warn(`[HowTo] Failed to fetch recent posts: ${e}`);
+    }
 
     const prompt = `
 당신은 '매우 친절하고 꼼꼼한 IT 전문가'입니다. 현재 연도는 **2026년**입니다. 아래 주제에 대해 초보자도 100% 따라할 수 있는 **매우 상세하고 정확한 사용법 가이드**를 작성해주세요.
 
 ## 주제 정보
 - 제목: ${topic.title}
-- 참고 내용: ${topic.content}
+- 참고 내용: ${topic.content}${recentPostsContext}
 
 ## 작성 원칙 (매우 중요)
 1. **분량**: 핵심을 아주 상세하게 풀어내어 **공백 제외 3000자 이상** 작성하세요.
@@ -134,35 +145,44 @@ async function generateHowToContent(topic: any): Promise<{ title: string; conten
    - 따뜻한 맺음말
 4. **이미지 (풍성하게)**: 글의 이해를 돕기 위해 단계별 설명 중간중간에 **[IMAGE: (영어 검색어)]**를 총 **3개~5개** 정도 적절히 배치해주세요. (예: [IMAGE: iPhone airdrop settings interface], [IMAGE: Galaxy quick share screen])
 5. **어조**: 읽는 사람이 기분 좋아지는 매우 친절하고 상냥한 경어체 (~습니다, ~해요, ~해볼까요?).
-6. **형식**: Markdown 문법(###, **, - 등)을 절대 사용하지 마세요. 오직 깔끔한 HTML 태그(<h2>, <h3>, <p>, <ul>, <ol>, <li>, <strong>, <table>)만 사용하세요.
+6. **형식**: Markdown 문법(###, **, - 등)을 절대 사용하지 마세요. 오직 깔끔한 HTML 태그(<h2>, <h3>, <p>, <ul>, <ol>, <li>, <strong>, <table>, <a>)만 사용하세요.
 7. **Slug**: 반드시 **영어 소문자와 하이픈(-)**만으로 구성된 URL Slug를 한글 없이 짧게 생성하세요.
+8. **내부 링크**: 기존 글 목록 내용 중 현재 주제와 관련 있는 포스팅이 있다면 <a> 태그를 이용해 본문에 자연스럽게 링크를 걸어주세요.
 
-## 출력 형식 (JSON Only)
-{
-  "title": "블로그 제목 (검색 최적화 및 시선을 끄는 제목)",
-  "content": "HTML 코드 (<body> 내부 내용만)",
-  "slug": "english-slug-example-2026"
-}
-JSON 외에 어떤 텍스트도 덧붙이지 마세요.
-`;
+## 출력 형식 (HTML + Meta)
+- 시작점부터 곧바로 블로그 본문 HTML 코드를 작성하세요. (<body> 태그는 쓰지 말고 그 내부의 <h2>, <p>, <ul> 태그 등만 작성).
+- 글 작성이 모두 끝난 맨 마지막에, 아래와 같은 메타데이터 블록을 덧붙여주세요:
 
-    const result = await generateContentWithRetry(prompt);
+<!--SEO_META_START-->
+SEO_TITLE: [클릭을 유도하는 기사 제목. 시작 부분에 이모지 포함 가능]
+SEO_SLUG: [해당 주제의 english-only-hyphen-separated-url-2026]
+<!--SEO_META_END-->
+
+주의: JSON, Markdown(\`\`\`) 등을 절대 사용하지 말고 순수 텍스트와 HTML로만 답하세요.`;
+
+    // Google Search Grounding Enabled
+    const result = await generateContentWithRetry(prompt, "gemini-2.5-flash", 3, true);
     const response = await result.response;
     let text = response.text().trim();
 
-    // Robust JSON cleanup: Find first { and last }
-    const firstBrace = text.indexOf('{');
-    const lastBrace = text.lastIndexOf('}');
+    let finalTitle = topic.title;
+    let finalSlug = "";
 
-    if (firstBrace !== -1 && lastBrace !== -1) {
-        text = text.substring(firstBrace, lastBrace + 1);
-    }
+    const titleMatch = text.match(/SEO_TITLE:\s*(.+)/);
+    if (titleMatch) finalTitle = titleMatch[1].trim();
 
-    const parsed = JSON.parse(text);
-    // Ensure HTML if Markdown leaks
-    parsed.content = ensureHtml(parsed.content);
+    const slugMatch = text.match(/SEO_SLUG:\s*(.+)/);
+    if (slugMatch) finalSlug = slugMatch[1].trim();
 
-    return parsed;
+    let finalContent = text.replace(/<!--SEO_META_START-->[\s\S]*<!--SEO_META_END-->/, '').trim();
+    finalContent = finalContent.replace(/```html/g, "").replace(/```/g, "").trim();
+    finalContent = ensureHtml(finalContent);
+
+    return {
+        title: finalTitle,
+        content: finalContent,
+        slug: finalSlug
+    };
 }
 
 // 3. Process Images
@@ -348,7 +368,8 @@ export async function GET(request: NextRequest) {
     } catch (e) {
         console.error("[HowTo] Error:", e);
         const message = e instanceof Error ? e.message : String(e);
-        const isTemporaryOrExternal = message.includes("503") || message.includes("429") || message.includes("fetch failed") || message.includes("Tavily") || message.includes("High demand") || message.includes("Service Unavailable");
+        const lowerMsg = message.toLowerCase();
+        const isTemporaryOrExternal = lowerMsg.includes("503") || lowerMsg.includes("429") || lowerMsg.includes("fetch failed") || lowerMsg.includes("tavily") || lowerMsg.includes("high demand") || lowerMsg.includes("service unavailable") || lowerMsg.includes("exceed");
 
         return NextResponse.json(
             { success: false, error: message },
