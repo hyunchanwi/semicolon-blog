@@ -9,6 +9,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { addSubscriber, removeSubscriber, isSubscribed } from "@/lib/subscribers";
 import { sendWelcomeEmail } from "@/lib/email";
 
+// Simple in-memory rate limiter for subscriptions
+const rateLimitMap = new Map<string, number[]>();
+
 // 이메일 유효성 검증
 function isValidEmail(email: string): boolean {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -56,6 +59,28 @@ export async function POST(request: NextRequest) {
                 { status: 400 }
             );
         }
+
+        // --- Rate Limiting (In-Memory IP based) ---
+        const ip = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown";
+        if (ip !== "unknown") {
+            const now = Date.now();
+            const windowMs = 10 * 60 * 1000; // 10 minutes
+            const maxRequests = 3;
+
+            let timestamps = rateLimitMap.get(ip) || [];
+            timestamps = timestamps.filter((t: number) => now - t < windowMs);
+            
+            if (timestamps.length >= maxRequests) {
+                console.warn(`[Subscribe] Rate limit exceeded for IP: ${ip}`);
+                return NextResponse.json(
+                    { success: false, message: "요청이 너무 많습니다. 잠시 후 다시 시도해주세요." },
+                    { status: 429 }
+                );
+            }
+            timestamps.push(now);
+            rateLimitMap.set(ip, timestamps);
+        }
+        // -------------------------------------------
 
         // 로그인한 사용자 → 자동 인증 (이메일 인증 스킵)
         const autoVerify = authenticated === true;

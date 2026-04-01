@@ -351,8 +351,7 @@ export async function GET(request: NextRequest) {
     // Auth check
     const authHeader = request.headers.get("authorization");
     if (authHeader !== `Bearer ${CRON_SECRET}`) {
-        // Allow for testing
-        console.log("[YouTube] Warning: No auth header");
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     try {

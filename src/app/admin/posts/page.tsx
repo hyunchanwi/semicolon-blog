@@ -23,11 +23,17 @@ export default async function AdminPostsPage({ searchParams }: Props) {
 
     const page = params.page ? parseInt(params.page as string) : 1;
 
-    // Fetch posts based on filter (Admin API: fetches all statuses)
-    const { posts, totalPages, total } = await getAdminPostsPaginated(page, 20, categoryId);
+    // Fetch posts, categories, and tags in parallel to reduce waterfall loading time
+    const [
+        { posts, totalPages, total },
+        categories,
+        tags
+    ] = await Promise.all([
+        getAdminPostsPaginated(page, 20, categoryId),
+        getCategories(),
+        getTags()
+    ]);
 
-    const categories = await getCategories();
-    const tags = await getTags();
     const youtubeTagId = tags.find(t => t.name.toLowerCase() === 'youtube')?.id || -1;
     const trendTagId = tags.find(t => t.name.toLowerCase() === 'trend')?.id || -1;
 

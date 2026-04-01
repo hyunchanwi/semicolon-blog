@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import parse, { attributesToProps, Element, HTMLReactParserOptions } from 'html-react-parser';
 import { TableOfContents, TocItem } from "./TableOfContents";
 import { GoogleAdUnit } from "@/components/ads/GoogleAdUnit";
 import { splitContentForAds } from "@/lib/ads";
@@ -117,9 +118,18 @@ export function PostContentLayout({ content, toc, hasToc }: PostContentLayoutPro
 }
 
 function ContentRenderer({ firstHalf, secondHalf }: { firstHalf: string, secondHalf: string }) {
+    const parseOptions: HTMLReactParserOptions = {
+        replace: (domNode) => {
+            if (domNode instanceof Element && domNode.tagName === 'img') {
+                const props = attributesToProps(domNode.attribs);
+                return <img {...props} loading="lazy" decoding="async" />;
+            }
+        }
+    };
+
     return (
         <>
-            <div dangerouslySetInnerHTML={{ __html: firstHalf }} />
+            <div className="html-content">{parse(firstHalf, parseOptions)}</div>
             {secondHalf && (
                 <>
                     <div className="my-12">
@@ -130,7 +140,7 @@ function ContentRenderer({ firstHalf, secondHalf }: { firstHalf: string, secondH
                             className="w-full"
                         />
                     </div>
-                    <div dangerouslySetInnerHTML={{ __html: secondHalf }} />
+                    <div className="html-content">{parse(secondHalf, parseOptions)}</div>
                 </>
             )}
         </>
