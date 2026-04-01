@@ -3,7 +3,7 @@ import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
 
-export const HeroSection = () => {
+export const HeroSection = ({ isEnglish = false }: { isEnglish?: boolean }) => {
     return (
         <section className="relative min-h-[80vh] flex items-center overflow-hidden">
             {/* Background Gradient */}
@@ -36,14 +36,28 @@ export const HeroSection = () => {
                     {/* Left: Text */}
                     <div className="space-y-8">
                         <h1 className="text-5xl md:text-6xl lg:text-7xl font-extrabold leading-tight">
-                            <span className="text-slate-900 dark:text-white">기술의 미래를</span>
+                            <span className="text-slate-900 dark:text-white">
+                                {isEnglish ? "Read the future of" : "기술의 미래를"}
+                            </span>
                             <br />
-                            <span className="gradient-text">읽다, Semicolon;</span>
+                            <span className="gradient-text">
+                                {isEnglish ? "technology, Semicolon;" : "읽다, Semicolon;"}
+                            </span>
                         </h1>
                         <p className="text-xl text-slate-600 dark:text-slate-400 leading-relaxed max-w-lg">
-                            AI, 가젯, 소프트웨어의 최신 트렌드를
-                            <br />
-                            가장 쉽고 깊이 있게 전달합니다.
+                            {isEnglish ? (
+                                <>
+                                    Delivering the latest trends in AI, gadgets,
+                                    <br />
+                                    and software most easily and deeply.
+                                </>
+                            ) : (
+                                <>
+                                    AI, 가젯, 소프트웨어의 최신 트렌드를
+                                    <br />
+                                    가장 쉽고 깊이 있게 전달합니다.
+                                </>
+                            )}
                         </p>
                         <div className="flex flex-wrap gap-4">
                             <Button
@@ -51,8 +65,9 @@ export const HeroSection = () => {
                                 size="lg"
                                 className="rounded-full px-8 py-6 text-lg bg-gradient-to-r from-blue-500 to-violet-500 hover:from-blue-600 hover:to-violet-600 shadow-lg shadow-blue-500/25"
                             >
-                                <Link href="/blog">
-                                    최신 글 보기 <ArrowRight className="ml-2 h-5 w-5" />
+                                <Link href={isEnglish ? "/en/blog" : "/blog"}>
+                                    {isEnglish ? "Latest Posts " : "최신 글 보기 "}
+                                    <ArrowRight className="ml-2 h-5 w-5" />
                                 </Link>
                             </Button>
                             <Button
@@ -61,8 +76,8 @@ export const HeroSection = () => {
                                 size="lg"
                                 className="rounded-full px-8 py-6 text-lg border-2 border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 dark:text-white"
                             >
-                                <Link href="/category/ai">
-                                    AI 탐험하기
+                                <Link href={isEnglish ? "/en/category/ai" : "/category/ai"}>
+                                    {isEnglish ? "Explore AI" : "AI 탐험하기"}
                                 </Link>
                             </Button>
                         </div>

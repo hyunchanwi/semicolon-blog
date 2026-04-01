@@ -79,6 +79,9 @@ export interface PaginatedPosts {
 // PICKS (Products) Category ID to exclude from main blog feed
 const PRODUCTS_CATEGORY_ID = 32;
 
+// English tag ID to exclude English posts from Korean blog feed
+const EN_TAG_ID = 33;
+
 // Sanitize WP_AUTH to avoid issues with trailing characters/newlines on Vercel
 const WP_AUTH = (process.env.WP_AUTH || "").trim();
 
@@ -122,7 +125,7 @@ export async function getPosts(perPage: number = 10, revalidate: number = 300, f
     const fetchPosts = async () => {
         try {
             const res = await fetchWithRetry(
-                `${WP_API_URL}/posts?per_page=${perPage}&categories_exclude=${PRODUCTS_CATEGORY_ID}&status=publish&_embed${fieldsParam}`
+                `${WP_API_URL}/posts?per_page=${perPage}&categories_exclude=${PRODUCTS_CATEGORY_ID}&tags_exclude=${EN_TAG_ID}&status=publish&_embed${fieldsParam}`
             );
             if (!res.ok) {
                 const errorText = await res.text().catch(() => "No error body");
@@ -145,7 +148,7 @@ export async function getPostsWithPagination(page: number = 1, perPage: number =
     const fetchPaginated = async () => {
         try {
             const res = await fetchWithRetry(
-                `${WP_API_URL}/posts?page=${page}&per_page=${perPage}&categories_exclude=${PRODUCTS_CATEGORY_ID}&status=publish&_embed`
+                `${WP_API_URL}/posts?page=${page}&per_page=${perPage}&categories_exclude=${PRODUCTS_CATEGORY_ID}&tags_exclude=${EN_TAG_ID}&status=publish&_embed`
             );
 
             if (!res.ok) {
@@ -206,7 +209,7 @@ export async function getCategories(): Promise<WPCategory[]> {
 export async function getPostsByCategory(categoryId: number, perPage: number = 10): Promise<WPPost[]> {
     try {
         const res = await fetchWithRetry(
-            `${WP_API_URL}/posts?categories=${categoryId}&per_page=${perPage}&_embed`,
+            `${WP_API_URL}/posts?categories=${categoryId}&tags_exclude=${EN_TAG_ID}&per_page=${perPage}&_embed`,
             { next: { revalidate: 60 } }
         );
         if (!res.ok) return [];

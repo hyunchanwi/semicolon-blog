@@ -16,8 +16,8 @@ export const metadata: Metadata = {
 export default function EnglishHomePage() {
   return (
     <>
-      {/* Hero Section - same component, English language context handled by layout metadata */}
-      <HeroSection />
+      {/* Hero Section */}
+      <HeroSection isEnglish={true} />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <GoogleAdUnit
           slotId="2792054250"
@@ -25,8 +25,8 @@ export default function EnglishHomePage() {
           layout="in-article"
         />
       </div>
-      {/* LatestPosts will be updated in Phase 2 to filter English posts */}
-      <LatestPosts />
+      {/* LatestPosts fetching English posts */}
+      <LatestPosts isEnglish={true} />
     </>
   );
 }
