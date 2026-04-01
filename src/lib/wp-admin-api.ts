@@ -143,6 +143,32 @@ export async function getAdminPosts(perPage: number = 50, categoryId: number | n
     return res.json();
 }
 
+// 관리자 페이징 전용 리스트 조회
+export async function getAdminPostsPaginated(page: number = 1, perPage: number = 20, categoryId: number | null = null) {
+    let url = `${WP_API_URL}/posts?page=${page}&per_page=${perPage}&status=any&_embed`;
+
+    if (categoryId) {
+        url += `&categories=${categoryId}`;
+    }
+
+    const res = await fetch(url, {
+        headers: {
+            "Authorization": `Basic ${WP_AUTH}`,
+        },
+        cache: 'no-store'
+    });
+
+    if (!res.ok) {
+        throw new Error("Failed to fetch admin posts paginated");
+    }
+
+    const totalPages = parseInt(res.headers.get("X-WP-TotalPages") || "1", 10);
+    const total = parseInt(res.headers.get("X-WP-Total") || "0", 10);
+    const posts = await res.json();
+
+    return { posts, totalPages, total };
+}
+
 // 카테고리 수정
 export async function updateCategory(id: number, data: any) {
     const res = await fetch(`${WP_API_URL}/categories/${id}`, {

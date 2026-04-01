@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getPosts, getCategories, getPostsByCategory, stripHtml, decodeHtmlEntities, getTags, type WPPost } from "@/lib/wp-api";
-import { getAdminPosts } from "@/lib/wp-admin-api";
+import { getAdminPostsPaginated } from "@/lib/wp-admin-api";
+import { Pagination } from "@/components/ui/Pagination";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, Edit, Eye, Trash2 } from "lucide-react";
@@ -20,9 +21,10 @@ export default async function AdminPostsPage({ searchParams }: Props) {
     const params = await searchParams;
     const categoryId = params.category ? parseInt(params.category as string) : null;
 
-    // Fetch posts based on filter
+    const page = params.page ? parseInt(params.page as string) : 1;
+
     // Fetch posts based on filter (Admin API: fetches all statuses)
-    const posts = await getAdminPosts(50, categoryId) as unknown as WPPost[];
+    const { posts, totalPages, total } = await getAdminPostsPaginated(page, 20, categoryId);
 
     const categories = await getCategories();
     const tags = await getTags();
@@ -35,7 +37,7 @@ export default async function AdminPostsPage({ searchParams }: Props) {
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900">글 관리</h1>
-                    <p className="text-slate-600">총 {posts.length}개의 글</p>
+                    <p className="text-slate-600">총 {total}개의 글 (페이지 {page}/{totalPages})</p>
                 </div>
                 <div className="flex gap-2">
                     <CategoryFilter categories={categories} />
@@ -115,6 +117,17 @@ export default async function AdminPostsPage({ searchParams }: Props) {
                     </table>
                 </CardContent>
             </Card>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+                <div className="mt-8 flex justify-center">
+                    <Pagination
+                        currentPage={page}
+                        totalPages={totalPages}
+                        basePath="/admin/posts"
+                    />
+                </div>
+            )}
         </div>
     );
 }
