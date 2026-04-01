@@ -62,6 +62,7 @@ export async function PUT(
         (revalidateTag as any)("posts");
         revalidatePath("/blog", "page");
         revalidatePath("/", "layout");
+        revalidatePath("/admin/posts");
 
         return NextResponse.json({ success: true, post });
     } catch (error) {
@@ -97,6 +98,7 @@ export async function DELETE(
         (revalidateTag as any)("posts");
         revalidatePath("/blog", "page");
         revalidatePath("/", "layout");
+        revalidatePath("/admin/posts");
 
         return NextResponse.json({ success: true });
     } catch (error) {
@@ -135,6 +137,7 @@ export async function PATCH(
         (revalidateTag as any)("posts");
         revalidatePath("/blog", "page");
         revalidatePath("/", "layout");
+        revalidatePath("/admin/posts");
 
         return NextResponse.json({ success: true, post });
     } catch (error) {

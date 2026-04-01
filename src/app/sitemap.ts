@@ -1,6 +1,7 @@
-import { getPosts, getCategories } from "@/lib/wp-api";
-import { getPostsWithPaginationByLang } from "@/lib/wp-api";
+import { getAllPostsForSitemap, getAllPostsByLangForSitemap, getCategories } from "@/lib/wp-api";
 import { MetadataRoute } from "next";
+
+export const revalidate = 3600; // Cache sitemap for 1 hour
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const baseUrl = "https://semicolonittech.com";
@@ -30,7 +31,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }));
 
     // 2. Korean Blog Posts
-    const posts = await getPosts(100, 300, "id,slug,date,categories,meta");
+    const posts = await getAllPostsForSitemap();
     const postRoutes = posts.map((post) => ({
         url: `${baseUrl}/blog/${post.slug}`,
         lastModified: new Date(post.date),
@@ -39,7 +40,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }));
 
     // 3. English Blog Posts
-    const { posts: enPosts } = await getPostsWithPaginationByLang("en", 1, 100);
+    const enPosts = await getAllPostsByLangForSitemap("en");
     const enPostRoutes = enPosts.map((post) => ({
         url: `${baseUrl}/en/blog/${post.slug}`,
         lastModified: new Date(post.date),

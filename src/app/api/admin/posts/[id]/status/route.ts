@@ -28,6 +28,12 @@ export async function PUT(
             status: status as 'publish' | 'draft' | 'private'
         });
 
+        // Clear cache so admin UI and main blog updates immediately
+        const { revalidatePath, revalidateTag } = require("next/cache");
+        revalidatePath("/admin/posts");
+        revalidatePath("/");
+        revalidateTag("posts");
+
         return NextResponse.json({ success: true, post: result });
     } catch (error) {
         console.error("Update status error:", error);

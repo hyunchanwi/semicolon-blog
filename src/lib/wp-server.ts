@@ -307,11 +307,12 @@ export async function createPostWithIndexing(
         // Trigger Cache Revalidation for automated posts
         try {
             const { revalidateTag, revalidatePath } = require("next/cache");
-            revalidateTag("posts");
-            revalidatePath("/");     // Clear main page cache
-            revalidatePath("/blog"); // Clear blog listing cache
-        } catch (e) {
-            console.log("[WP-Create] Revalidation failed (likely execution context issue):", e);
+            if (typeof revalidateTag === 'function') {
+                revalidateTag("posts");
+                revalidatePath("/");
+            }
+        } catch (e: any) {
+            console.warn("[WP-Create] Revalidation skipped (likely execution context issue):", e.message || e);
         }
 
         return post;

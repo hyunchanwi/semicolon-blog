@@ -177,6 +177,75 @@ export async function getPostsWithPagination(page: number = 1, perPage: number =
     return await cachedPaginatedFn();
 }
 
+/**
+ * SEO 사이트맵 전용: 모든 한국어 게시글을 페이지 단위로 끝까지 불러와서 배열 하나로 합쳐서 반환합니다.
+ */
+export async function getAllPostsForSitemap(): Promise<WPPost[]> {
+    let allPosts: WPPost[] = [];
+    let page = 1;
+    let totalPages = 1;
+
+    do {
+        try {
+            const res = await fetchWithRetry(
+                `${WP_API_URL}/posts?page=${page}&per_page=100&categories_exclude=${PRODUCTS_CATEGORY_ID}&tags_exclude=${EN_TAG_ID}&status=publish&_fields=id,slug,date,categories,meta`
+            );
+            if (!res.ok) break;
+
+            if (page === 1) {
+                totalPages = parseInt(res.headers.get("X-WP-TotalPages") || "1", 10);
+            }
+
+            const posts = await res.json();
+            allPosts = allPosts.concat(posts.filter((post: any) => !post.categories.includes(PRODUCTS_CATEGORY_ID)));
+            page++;
+        } catch (err) {
+            console.error('[WP-API] getAllPostsForSitemap error:', err);
+            break;
+        }
+    } while (page <= totalPages);
+
+    return allPosts;
+}
+
+/**
+ * SEO 사이트맵 전용: 모든 해당 언어 태그 게시글을 끝까지 불러와서 반환합니다.
+ */
+export async function getAllPostsByLangForSitemap(lang: string): Promise<WPPost[]> {
+    let allPosts: WPPost[] = [];
+    let page = 1;
+    let totalPages = 1;
+
+    // 언어 태그 ID 찾기
+    const tagsRes = await fetchWithRetry(`${WP_API_URL}/tags?slug=${lang}`);
+    if (!tagsRes.ok) return [];
+    const tags = await tagsRes.json();
+    if (tags.length === 0) return [];
+    const langTagId = tags[0].id;
+
+    do {
+        try {
+            const res = await fetchWithRetry(
+                `${WP_API_URL}/posts?page=${page}&per_page=100&categories_exclude=${PRODUCTS_CATEGORY_ID}&tags=${langTagId}&status=publish&_fields=id,slug,date,categories,meta`
+            );
+            if (!res.ok) break;
+
+            if (page === 1) {
+                totalPages = parseInt(res.headers.get("X-WP-TotalPages") || "1", 10);
+            }
+
+            const posts = await res.json();
+            allPosts = allPosts.concat(posts.filter((post: any) => !post.categories.includes(PRODUCTS_CATEGORY_ID)));
+            page++;
+        } catch (err) {
+            console.error('[WP-API] getAllPostsByLangForSitemap error:', err);
+            break;
+        }
+    } while (page <= totalPages);
+
+    return allPosts;
+}
+
 export async function getPostBySlug(slug: string): Promise<WPPost | null> {
     try {
         const res = await fetchWithRetry(
