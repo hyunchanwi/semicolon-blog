@@ -83,10 +83,10 @@ export function GoogleAdUnit({
         : style;
 
     return (
-        <div className={`google-ad-container ${className} my-8`}>
+        <div className={`google-ad-container ${className} empty:hidden min-h-0`}>
             <ins
                 ref={adRef}
-                className="adsbygoogle"
+                className="adsbygoogle block empty:hidden"
                 style={combinedStyle}
                 data-ad-client={publisherId}
                 data-ad-slot={slotId}

@@ -129,18 +129,16 @@ function ContentRenderer({ firstHalf, secondHalf }: { firstHalf: string, secondH
 
     return (
         <>
-            <div className="html-content">{parse(firstHalf, parseOptions)}</div>
+            {parse(firstHalf, parseOptions)}
             {secondHalf && (
                 <>
-                    <div className="my-12">
-                        <GoogleAdUnit
-                            slotId="5212379301"
-                            layout="in-article"
-                            format="fluid"
-                            className="w-full"
-                        />
-                    </div>
-                    <div className="html-content">{parse(secondHalf, parseOptions)}</div>
+                    <GoogleAdUnit
+                        slotId="5212379301"
+                        layout="in-article"
+                        format="fluid"
+                        className="w-full"
+                    />
+                    {parse(secondHalf, parseOptions)}
                 </>
             )}
         </>
