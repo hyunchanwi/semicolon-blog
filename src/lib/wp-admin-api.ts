@@ -68,7 +68,7 @@ export async function createPost(data: CreatePostData) {
 
 // 글 수정
 export async function updatePost(id: number, data: Partial<CreatePostData>) {
-    const res = await fetch(`${WP_API_URL}/posts/${id}`, {
+    const res = await wpFetch(`${WP_API_URL}/posts/${id}`, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
@@ -87,7 +87,7 @@ export async function updatePost(id: number, data: Partial<CreatePostData>) {
 
 // 글 삭제
 export async function deletePost(id: number) {
-    const res = await fetch(`${WP_API_URL}/posts/${id}?force=true`, {
+    const res = await wpFetch(`${WP_API_URL}/posts/${id}?force=true`, {
         method: "DELETE",
         headers: {
             "Authorization": `Basic ${WP_AUTH}`,
@@ -104,7 +104,7 @@ export async function deletePost(id: number) {
 
 // 단일 글 가져오기 (편집용)
 export async function getPostById(id: number) {
-    const res = await fetch(
+    const res = await wpFetch(
         `${WP_API_URL}/posts/${id}?_embed`,
         {
             headers: {
@@ -129,7 +129,7 @@ export async function getAdminPosts(perPage: number = 50, categoryId: number | n
         url += `&categories=${categoryId}`;
     }
 
-    const res = await fetch(url, {
+    const res = await wpFetch(url, {
         headers: {
             "Authorization": `Basic ${WP_AUTH}`,
         },
@@ -151,7 +151,7 @@ export async function getAdminPostsPaginated(page: number = 1, perPage: number =
         url += `&categories=${categoryId}`;
     }
 
-    const res = await fetch(url, {
+    const res = await wpFetch(url, {
         headers: {
             "Authorization": `Basic ${WP_AUTH}`,
         },
@@ -171,7 +171,7 @@ export async function getAdminPostsPaginated(page: number = 1, perPage: number =
 
 // 카테고리 수정
 export async function updateCategory(id: number, data: any) {
-    const res = await fetch(`${WP_API_URL}/categories/${id}`, {
+    const res = await wpFetch(`${WP_API_URL}/categories/${id}`, {
         method: "PUT",
         headers: {
             "Content-Type": "application/json",
@@ -190,7 +190,7 @@ export async function updateCategory(id: number, data: any) {
 
 // 카테고리 삭제
 export async function deleteCategory(id: number) {
-    const res = await fetch(`${WP_API_URL}/categories/${id}?force=true`, {
+    const res = await wpFetch(`${WP_API_URL}/categories/${id}?force=true`, {
         method: "DELETE",
         headers: {
             "Authorization": `Basic ${WP_AUTH}`,
@@ -222,7 +222,7 @@ export interface WPUser {
 export async function getUserById(userId: number): Promise<WPUser | null> {
     console.log('[getUserById] Fetching user ID:', userId);
 
-    const res = await fetch(`${WP_API_URL}/users/${userId}?context=edit`, {
+    const res = await wpFetch(`${WP_API_URL}/users/${userId}?context=edit`, {
         headers: {
             "Authorization": `Basic ${WP_AUTH}`
         },
@@ -245,7 +245,7 @@ export async function getUserByEmail(email: string): Promise<WPUser | null> {
 
     // WordPress API의 email 파라미터는 정확한 매칭이 안 될 수 있음
     // search 파라미터로 먼저 시도
-    const searchRes = await fetch(`${WP_API_URL}/users?search=${encodeURIComponent(email)}&context=edit`, {
+    const searchRes = await wpFetch(`${WP_API_URL}/users?search=${encodeURIComponent(email)}&context=edit`, {
         headers: {
             "Authorization": `Basic ${WP_AUTH}`
         },
@@ -275,7 +275,7 @@ export async function createWPUser(email: string, name: string): Promise<WPUser>
     // Generate a random password since we use SSO
     const password = Math.random().toString(36).slice(-10) + "!!A1";
 
-    const res = await fetch(`${WP_API_URL}/users`, {
+    const res = await wpFetch(`${WP_API_URL}/users`, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
@@ -300,7 +300,7 @@ export async function createWPUser(email: string, name: string): Promise<WPUser>
 
 // 사용자 메타 업데이트 (북마크 저장용 - Meta 방식)
 export async function updateUserMeta(userId: number, key: string, value: any) {
-    const res = await fetch(`${WP_API_URL}/users/${userId}`, {
+    const res = await wpFetch(`${WP_API_URL}/users/${userId}`, {
         method: "PUT",
         headers: {
             "Content-Type": "application/json",
@@ -324,7 +324,7 @@ export async function updateUserMeta(userId: number, key: string, value: any) {
 
 // 사용자 정보 수정 (Description 등 일반 필드)
 export async function updateUser(userId: number, data: Partial<WPUser> & { description?: string }) {
-    const res = await fetch(`${WP_API_URL}/users/${userId}`, {
+    const res = await wpFetch(`${WP_API_URL}/users/${userId}`, {
         method: "PUT",
         headers: {
             "Content-Type": "application/json",
