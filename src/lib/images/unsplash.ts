@@ -19,10 +19,13 @@ export interface UnsplashImage {
  */
 export async function searchUnsplashImages(
     query: string,
-    count: number = 1
+    count: number = 10
 ): Promise<UnsplashImage[]> {
     if (!UNSPLASH_ACCESS_KEY) {
-        console.log('[Unsplash] API key not set, using fallback');
+        console.warn('=============================================');
+        console.warn('⚠️ [Unsplash] CRITICAL: UNSPLASH_ACCESS_KEY is NOT set in environment variables!');
+        console.warn('⚠️ [Unsplash] Thumbnails will fallback to default images.');
+        console.warn('=============================================');
         return [];
     }
 
@@ -117,13 +120,14 @@ export async function getFeaturedImage(topic: string): Promise<{
     url: string;
     credit: string;
 } | null> {
-    const images = await searchUnsplashImages(topic, 1);
+    const images = await searchUnsplashImages(topic, 10);
 
     if (images.length === 0) {
         return null;
     }
 
-    const image = images[0];
+    // Pick a random image from the pool to avoid repetition
+    const image = images[Math.floor(Math.random() * images.length)];
     return {
         url: image.url,
         credit: getImageCredit(image),

@@ -1,0 +1,56 @@
+[
+    {
+        "id": "galaxy-s24-ultra",
+        "name": "삼성 갤럭시 S24 Ultra",
+        "price": 1699000,
+        "image": "https://images.unsplash.com/photo-1610945265064-0e34e5519bbf?w=400",
+        "category": "gadget",
+        "coupangUrl": "https://link.coupang.com/",
+        "description": "AI 기능이 탑재된 프리미엄 스마트폰. Galaxy AI로 번역, 검색, 편집까지."
+    },
+    {
+        "id": "iphone-15-pro",
+        "name": "Apple iPhone 15 Pro",
+        "price": 1550000,
+        "image": "https://images.unsplash.com/photo-1695048133142-1a20484d2569?w=400",
+        "category": "gadget",
+        "coupangUrl": "https://link.coupang.com/",
+        "description": "타이타늄 디자인, A17 Pro 칩, 프로급 카메라 시스템."
+    },
+    {
+        "id": "macbook-air-m3",
+        "name": "Apple MacBook Air M3",
+        "price": 1590000,
+        "image": "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=400",
+        "category": "gadget",
+        "coupangUrl": "https://link.coupang.com/",
+        "description": "M3 칩으로 더 빨라진 성능. 하루 종일 쓰는 배터리."
+    },
+    {
+        "id": "airpods-pro-2",
+        "name": "Apple AirPods Pro 2",
+        "price": 359000,
+        "image": "https://images.unsplash.com/photo-1600294037681-c80b4cb5b434?w=400",
+        "category": "gadget",
+        "coupangUrl": "https://link.coupang.com/",
+        "description": "최고의 노이즈 캔슬링과 공간 음향."
+    },
+    {
+        "id": "chatgpt-plus",
+        "name": "ChatGPT Plus 구독",
+        "price": 26400,
+        "image": "https://images.unsplash.com/photo-1677442136019-21780ecad995?w=400",
+        "category": "ai",
+        "coupangUrl": "",
+        "description": "GPT-4 접근, 이미지 생성, 더 빠른 응답 속도."
+    },
+    {
+        "id": "notion-pro",
+        "name": "Notion Pro",
+        "price": 10000,
+        "image": "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=400",
+        "category": "software",
+        "coupangUrl": "",
+        "description": "AI 기능이 포함된 올인원 워크스페이스."
+    }
+]

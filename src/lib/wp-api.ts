@@ -290,12 +290,17 @@ export async function getPostsByCategory(categoryId: number, perPage: number = 1
 }
 
 export async function getTags(): Promise<{ id: number; name: string }[]> {
-    const res = await fetch(
-        `${WP_API_URL}/tags?per_page=100`,
-        { next: { revalidate: 300 } }
-    );
-    if (!res.ok) return [];
-    return res.json();
+    try {
+        const res = await fetchWithRetry(
+            `${WP_API_URL}/tags?per_page=100`,
+            { next: { revalidate: 300 } }
+        );
+        if (!res.ok) return [];
+        return res.json();
+    } catch (err) {
+        console.error('[WP-API] getTags network error:', err);
+        return [];
+    }
 }
 
 export async function getCategoryBySlug(slug: string): Promise<WPCategory | null> {
@@ -398,9 +403,17 @@ export function decodeHtmlEntities(text: string): string {
 
 // 미디어 정보 가져오기
 export async function getMedia(id: number): Promise<{ source_url: string } | null> {
-    const res = await fetch(`${WP_API_URL}/media/${id}`, { next: { revalidate: 3600 } });
-    if (!res.ok) return null;
-    return res.json();
+    try {
+        const res = await fetchWithRetry(
+            `${WP_API_URL}/media/${id}`,
+            { next: { revalidate: 3600 } }
+        );
+        if (!res.ok) return null;
+        return res.json();
+    } catch (err) {
+        console.error('[WP-API] getMedia network error:', err);
+        return null;
+    }
 }
 
 // ──────────────────────────────────────────────

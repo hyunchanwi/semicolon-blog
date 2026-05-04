@@ -1,3 +1,5 @@
+// Shared interfaces for search provider abstraction
+
 export interface SearchResult {
     title: string;
     url: string;
@@ -6,10 +8,9 @@ export interface SearchResult {
     images?: string[];
 }
 
-
 export interface SearchOptions {
-    days?: number;
     maxResults?: number;
+    days?: number;
 }
 
 export interface SearchProvider {
