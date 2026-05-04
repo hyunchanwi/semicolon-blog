@@ -7,7 +7,11 @@ const WP_API_URL = "https://wp.semicolonittech.com/wp-json/wp/v2";
 const WP_AUTH = (process.env.WP_AUTH || "").trim();
 
 import { Agent, fetch as undiciFetch } from 'undici';
-const http1Agent = new Agent({ allowH2: false });
+const http1Agent = new Agent({ 
+    allowH2: false,
+    keepAliveTimeout: 10,
+    keepAliveMaxTimeout: 10,
+});
 const wpFetch = (url: string, opts: any = {}) => undiciFetch(url, { ...opts, dispatcher: http1Agent }) as any;
 
 export interface CreatePostData {
@@ -159,7 +163,9 @@ export async function getAdminPostsPaginated(page: number = 1, perPage: number =
     });
 
     if (!res.ok) {
-        throw new Error("Failed to fetch admin posts paginated");
+        const errText = await res.text().catch(() => "no body");
+        console.error(`[WP-Admin] Failed to fetch paginated. Status: ${res.status}. Body:`, errText);
+        throw new Error(`Failed to fetch admin posts paginated: ${res.status} ${errText}`);
     }
 
     const totalPages = parseInt(res.headers.get("X-WP-TotalPages") || "1", 10);
