@@ -156,8 +156,8 @@ export async function GET(request: NextRequest) {
         const blogResult = await generateBlogPost(selectedTitle, searchResults);
         const koreanTitle = blogResult.title;
         const htmlContent = blogResult.content;
-        const { seoTitle, metaDescription, focusKeyphrase, slug } = blogResult;
-        console.log(`[Cron] ✅ Generated: "${koreanTitle}" | SEO: ${focusKeyphrase} | Slug: ${slug}`);
+        const { seoTitle, metaDescription, focusKeyphrase, slug, imageKeyword } = blogResult;
+        console.log(`[Cron] ✅ Generated: "${koreanTitle}" | SEO: ${focusKeyphrase} | Slug: ${slug} | ImageKw: ${imageKeyword}`);
 
         // 6. 이미지 설정 (Tavily > Unsplash > Fallback)
         // 6. 이미지 설정 (Tavily > Unsplash > Fallback)
@@ -181,7 +181,8 @@ export async function GET(request: NextRequest) {
         try {
             // Strategy 2: If no Tavily image, try Unsplash
             if (!imageUrl) {
-                const imageData = await getFeaturedImage(koreanTitle);
+                // Use AI-generated imageKeyword for precise, topic-relevant Unsplash search
+                const imageData = await getFeaturedImage(imageKeyword);
                 if (imageData) {
                     imageUrl = imageData.url;
                     imageCredit = imageData.credit;
@@ -264,7 +265,7 @@ export async function GET(request: NextRequest) {
                         <img src="${tavilyImages[1]}" alt="Related Image" style="width:100%;border-radius:0.75rem;" />
                      </figure>`;
             } else if (!tavilyImages.length) {
-                const bodyImageData = await getFeaturedImage(`${selectedTitle} technology`);
+                const bodyImageData = await getFeaturedImage(`${imageKeyword} technology`);
                 if (bodyImageData && bodyImageData.url !== imageUrl) {
                     bodyImageHtml = `
                      <figure style="margin: 2rem 0;">

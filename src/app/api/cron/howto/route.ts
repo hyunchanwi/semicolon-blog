@@ -112,7 +112,7 @@ async function getHowToTopic(recentTopics: string[], existingPosts: any[], force
 }
 
 // 2. Generate Content (Gemini)
-async function generateHowToContent(topic: any): Promise<{ title: string; content: string; slug: string }> {
+async function generateHowToContent(topic: any): Promise<{ title: string; content: string; slug: string; imageKeyword: string }> {
 
     let recentPostsContext = "";
     try {
@@ -155,6 +155,7 @@ async function generateHowToContent(topic: any): Promise<{ title: string; conten
 <!--SEO_META_START-->
 SEO_TITLE: [클릭을 유도하는 기사 제목. 시작 부분에 이모지 포함 가능]
 SEO_SLUG: [해당 주제의 english-only-hyphen-separated-url-2026]
+UNSPLASH_KEYWORD: [글 내용과 딱 맞는 영어 검색어 1~3단어. 고유명사 없이. 예: laptop screen settings, smartphone app interface, wifi router setup]
 <!--SEO_META_END-->
 
 주의: JSON, Markdown(\`\`\`) 등을 절대 사용하지 말고 순수 텍스트와 HTML로만 답하세요.`;
@@ -173,14 +174,23 @@ SEO_SLUG: [해당 주제의 english-only-hyphen-separated-url-2026]
     const slugMatch = text.match(/SEO_SLUG:\s*(.+)/);
     if (slugMatch) finalSlug = slugMatch[1].trim();
 
+    // Extract Unsplash image keyword for relevant thumbnail
+    let imageKeyword = finalTitle;
+    const imageKwMatch = text.match(/UNSPLASH_KEYWORD:\s*(.+)/);
+    if (imageKwMatch) {
+        imageKeyword = imageKwMatch[1].trim();
+    }
+
     let finalContent = text.replace(/<!--SEO_META_START-->[\s\S]*<!--SEO_META_END-->/, '').trim();
+    finalContent = finalContent.replace(/UNSPLASH_KEYWORD:.*\n?/, '').trim();
     finalContent = finalContent.replace(/```html/g, "").replace(/```/g, "").trim();
     finalContent = ensureHtml(finalContent);
 
     return {
         title: finalTitle,
         content: finalContent,
-        slug: finalSlug
+        slug: finalSlug,
+        imageKeyword,
     };
 }
 
@@ -295,8 +305,8 @@ export async function GET(request: NextRequest) {
         const tagId = await getOrCreateTag("사용법", wpAuth);
         const tags = tagId ? [tagId] : [];
 
-        // Generate Featured Image (Moved from removed publishPost)
-        let featuredImg = await getFeaturedImage(generated.title);
+        // Generate Featured Image using AI-suggested keyword for better relevance
+        let featuredImg = await getFeaturedImage(generated.imageKeyword || generated.title);
 
         if (!featuredImg) {
             // Fallback: Use reliable random tech images

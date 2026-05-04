@@ -86,6 +86,7 @@ export interface BlogPostResult {
     seoTitle: string;        // 50-60자
     metaDescription: string; // 150-160자
     focusKeyphrase: string;  // 핵심 검색어
+    imageKeyword: string;    // English keyword for Unsplash thumbnail search
     // English translation
     en_title: string;
     en_content: string;
@@ -132,6 +133,7 @@ export async function generateBlogPost(topic: string, searchResults: SearchResul
        SEO_TITLE: [50-60자. "충격", "결국", "놀라운", "공개" 등 클릭을 유도하는 단어 포함 + 핵심 키워드]
        META_DESC: [150-160자의 메타 설명, 핵심 내용 요약, 검색 결과에 표시될 텍스트]
        FOCUS_KW: [가장 중요한 검색 키워드 1개, 예: "아이폰16 출시일" 또는 "ChatGPT 사용법"]
+       UNSPLASH_KEYWORD: [글 내용과 딱 맞는 영어 검색어 1~3단어. 고유명사 없이. 예: smartphone camera, artificial intelligence chip, cloud server, cybersecurity network]
        <!--SEO_META_END-->
     
     Sources to use:
@@ -199,6 +201,15 @@ export async function generateBlogPost(topic: string, searchResults: SearchResul
             text = text.replace(/<!--SEO_META_START-->[\s\S]*?<!--SEO_META_END-->/, "").trim();
         }
 
+        // Extract UNSPLASH_KEYWORD (outside SEO block, safe fallback)
+        let imageKeyword = focusKeyphrase || topic;
+        const imageKwMatch = text.match(/UNSPLASH_KEYWORD:\s*(.+)/);
+        if (imageKwMatch) {
+            imageKeyword = imageKwMatch[1].trim();
+            // Clean up the line from content in case it leaked outside the SEO block
+            text = text.replace(/UNSPLASH_KEYWORD:.*\n?/, '').trim();
+        }
+
         // Fallback: Generate meta description from content if not provided
         if (!metaDescription) {
             const plainText = text.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
@@ -233,7 +244,7 @@ export async function generateBlogPost(topic: string, searchResults: SearchResul
 
         const en_slug = slug ? `${slug}-en` : '';
 
-        console.log(`[Gemini] SEO Generated - Title: ${seoTitle.slice(0, 30)}..., Keyphrase: ${focusKeyphrase}, Slug: ${slug}`);
+        console.log(`[Gemini] SEO Generated - Title: ${seoTitle.slice(0, 30)}..., Keyphrase: ${focusKeyphrase}, Slug: ${slug}, ImageKw: ${imageKeyword}`);
 
         return {
             title: koreanTitle,
@@ -242,6 +253,7 @@ export async function generateBlogPost(topic: string, searchResults: SearchResul
             seoTitle,
             metaDescription,
             focusKeyphrase,
+            imageKeyword,
             en_title,
             en_content,
             en_slug,
