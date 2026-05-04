@@ -149,7 +149,7 @@ export async function getAdminPosts(perPage: number = 50, categoryId: number | n
 
 // 관리자 페이징 전용 리스트 조회
 export async function getAdminPostsPaginated(page: number = 1, perPage: number = 20, categoryId: number | null = null) {
-    let url = `${WP_API_URL}/posts?page=${page}&per_page=${perPage}&status=any&_embed`;
+    let url = `${WP_API_URL}/posts?page=${page}&per_page=${perPage}&_embed`;
 
     if (categoryId) {
         url += `&categories=${categoryId}`;
